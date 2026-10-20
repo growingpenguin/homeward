@@ -55,7 +55,7 @@ PostgreSQL is the only one that wins all three rows. MySQL is close on safety ru
 
 ## Requirements → SQL
 
-The constraints come first, then the SQL that enforces each one. The SQL below is copied from the Flyway migrations `V1`–`V4` in `server/src/main/resources/db/migration/`, which were split from the complete tested draft `db/draft/full_schema_draft.sql` step by step (see `DATABASE_PLAN.md`; the few fixes made since are listed in `DATABASE_IMPLEMENTATION.md`). It passes all checks on PostgreSQL 18.6, the same version as Neon; each rule was tested by trying to break it (see **Tests**).
+The constraints come first, then the SQL that enforces each one. The SQL below is copied from the Flyway migrations `V1`–`V5` in `server/src/main/resources/db/migration/`, which were split from the complete tested draft `db/draft/full_schema_draft.sql` step by step (see `DATABASE_PLAN.md`; the few fixes made since are listed in `DATABASE_IMPLEMENTATION.md`). It passes all checks on PostgreSQL 18.6, the same version as Neon; each rule was tested by trying to break it (see **Tests**).
 
 | # | Constraint (from the scenario) | Enforced by |
 | --- | --- | --- |
@@ -70,7 +70,7 @@ The constraints come first, then the SQL that enforces each one. The SQL below i
 ### 1. "Some people don't want to be found"
 
 - **`search_candidates`** is the view matching reads. It has no shelter, home area, phone or description column, so a match can't carry a location. It's a `security_barrier` view, so its filters run before anything else and a clever query can't peek at the rows it removes.
-- People who chose "Don't tell anyone I'm here" (`hidden`) never show up in it, **children included**, so searching their exact name gives the same answer as searching a name that doesn't exist. A guardian looking for a hidden child goes through a lead instead.
+- People who chose "Don't tell anyone I'm here" (`hidden`) never show up in it, **children included**, so searching their exact name gives the same answer as searching a name that doesn't exist. A guardian looking for a hidden child goes through a lead instead. The database allows that (a lead can read the flagged and hidden rows), but there is no lead search screen or endpoint yet: not built (planned). Search cards in the app also leave out anyone with an active flag (`SearchRepo.shown`).
 - **`safety_flags`** are about exactly one person or one search. What each kind does is in the table below.
 - **`contact_requests_guard`** refuses to mark a request `connected` or `safe_only` while there's an active flag on the person, the search, or the searcher. A request can also never be moved to another person or search, and **`searches_keep_searcher`** stops a search's searcher from being swapped once it has one (or once it got an answer), so a "yes" can't be reused for someone else.
 - **When a flag is added**, every request it touches that was already `connected` or `safe_only` switches to `blocked` straight away. Both triggers lock the same rows, so a flag and a "Connect" happening at the same moment can't slip past each other. A lifted flag can't be switched back on; protecting someone again means adding a new flag, which runs all of this again.
@@ -81,7 +81,7 @@ The constraints come first, then the SQL that enforces each one. The SQL below i
 | --- | --- | --- |
 | `do_not_disclose` | Disappears from matching; can't be connected or told "safe"; earlier reveals blocked | Not allowed (only a person can be protected) |
 | `suspected_abuser` | Their own searches can't connect; earlier reveals to them blocked | This search can't connect; earlier reveals blocked |
-| `custody_hold` | Still matchable, so a lead can see them, but can't be connected or told "safe" | This search can't connect |
+| `custody_hold` | Still matchable in the database, so a lead could see them (no lead search screen is built (planned); search cards leave out anyone with an active flag), but can't be connected or told "safe" | This search can't connect |
 
 ```sql
 -- No shelter, home area, phone or description. Hidden people and protected people never show up.
@@ -130,6 +130,10 @@ CREATE TABLE contact_requests (
     UNIQUE (search_id, person_id),
     CHECK (state <> 'connected' OR has_text(contact_plan))     -- "connected" always says how to meet
 );
+
+-- V5: the searcher's message belongs to this one request. The app writes it once, with the request.
+ALTER TABLE contact_requests
+    ADD COLUMN message text CHECK (message IS NULL OR char_length(message) <= 500);
 ```
 
 ```sql
@@ -137,6 +141,9 @@ CREATE TABLE contact_requests (
 CREATE FUNCTION safety_flags_block_reveals() RETURNS trigger
 LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
 BEGIN
+    IF NEW.cleared_at IS NOT NULL THEN
+        RETURN NEW;                                   -- entered already lifted: not an active flag (same as the guard)
+    END IF;
     UPDATE contact_requests cr
     SET state = 'blocked', decided_at = now()
     WHERE cr.state IN ('connected', 'safe_only')
@@ -595,7 +602,7 @@ search_candidates   VIEW over persons: no location, no hidden, no protected peop
 | `persons` | removed `reunion_code`, `pin_hash` → new `reunion_codes` table | Paper shelters can pre-print slips before a person exists; one working code per person |
 | `persons` | added `unaccompanied`, `updated_by`, `search_names`, `name_words`, `name_sounds`; checks that age and "minor" agree | Children first; who changed it; fast matching |
 | `searches` | added `shelter_id`, `entered_by` | Volunteers only see their own shelter's searches |
-| `contact_requests` | added `contact_plan`, `approved_by`, `guardian_checked`, `note` | "Connected" must say how to meet; child release needs a lead's sign-off |
+| `contact_requests` | added `contact_plan`, `approved_by`, `guardian_checked`, `note`, and (V5) `message` | "Connected" must say how to meet; child release needs a lead's sign-off |
 | `safety_flags` | added `created_at`, `cleared_at`, `cleared_by`; exactly one subject | A flag can be lifted, and it says who lifted it |
 | `audit_log` | `action` from a fixed list | No free text, so nothing sensitive can end up in it |
 | new | `person_history`, `nicknames` | Edit snapshots; nickname matching |
@@ -607,26 +614,36 @@ search_candidates   VIEW over persons: no location, no hidden, no protected peop
 | User | Used by | Can | Can't |
 | --- | --- | --- | --- |
 | owner (`neondb_owner`) | Flyway migrations only | Create and change tables | Never used by the running app |
-| `homeward_app` | The Spring Boot app | Read and write people, searches, requests, codes; add and lift flags; add to the audit log | Delete people; rewrite a flag; write history; change, delete or backdate the audit log |
-| `homeward_maint` | The retention job | Delete old people, searches and codes (the rest follows by `ON DELETE CASCADE`) | Touch the audit log |
+| `homeward_app` | The Spring Boot app | Read and write people, searches, requests, codes; add and lift flags; add to the audit log | Delete people; create or change staff accounts (V4); rewrite a flag; write history; change, delete or backdate the audit log |
+| `homeward_maint` | The retention job (not built (planned); the role exists) | Delete old people, searches and codes (the rest follows by `ON DELETE CASCADE`) | Touch the audit log |
 
 ```sql
--- The app can read and write, but never delete people.
-GRANT SELECT, INSERT, UPDATE ON shelters, staff, persons, reunion_codes, searches,
-      match_candidates, contact_requests TO homeward_app;
-GRANT SELECT ON person_history, nicknames, search_candidates TO homeward_app;     -- history is written by the trigger only
+-- V1: the app can read and write, but never delete people.
+GRANT SELECT, INSERT, UPDATE ON shelters, staff, persons, reunion_codes, searches TO homeward_app;
+GRANT SELECT ON person_history TO homeward_app;     -- history is written by the trigger only
+
+-- The audit log is append-only for the app: no UPDATE, no DELETE, and it can't set the time.
+GRANT SELECT ON audit_log TO homeward_app;
+GRANT INSERT (staff_id, action, target) ON audit_log TO homeward_app;
+
+-- Only the retention role can delete, and it still can't touch the audit log.
+GRANT SELECT, DELETE ON persons, searches, reunion_codes TO homeward_maint;
+
+-- V3: matching. Suggestions can be added and decided, never rewritten.
+GRANT SELECT, INSERT ON match_candidates TO homeward_app;
+GRANT UPDATE (decision, reviewed_by) ON match_candidates TO homeward_app;
+GRANT SELECT ON nicknames, search_candidates TO homeward_app;
 GRANT EXECUTE ON FUNCTION find_candidates(text, int, int) TO homeward_app;
 
 -- Flags: add them and lift them, but never rewrite who or what they're about.
 GRANT SELECT, INSERT ON safety_flags TO homeward_app;
 GRANT UPDATE (cleared_at, cleared_by) ON safety_flags TO homeward_app;
 
--- The audit log is append-only for the app: no UPDATE, no DELETE, and it can't set the time.
-GRANT SELECT ON audit_log TO homeward_app;
-GRANT INSERT (staff_id, action, target) ON audit_log TO homeward_app;
-
--- Only the retention job can delete, and it still can't touch the audit log.
-GRANT SELECT, DELETE ON persons, searches, reunion_codes TO homeward_maint;
+-- V4: the child check trusts staff.role, so the app can no longer create or change staff accounts.
+REVOKE INSERT, UPDATE ON staff FROM homeward_app;
+-- Requests: make them and record decisions; never rewrite their id or when they were made.
+GRANT SELECT, INSERT ON contact_requests TO homeward_app;
+GRANT UPDATE (state, contact_plan, approved_by, guardian_checked, note, decided_at) ON contact_requests TO homeward_app;
 ```
 
 **On Neon, create the two users with SQL (the migration does it), never in the Neon console.** Users made in the console automatically get `neon_superuser`, which can write to every table, including the audit log, and that would quietly undo every rule above. Passwords are set outside the migration. After the first deploy, I'll check the users' memberships and re-run the permission tests with the real credentials.
@@ -635,15 +652,15 @@ GRANT SELECT, DELETE ON persons, searches, reunion_codes TO homeward_maint;
 
 ## Migrations
 
-- **Flyway** runs the migrations in `server/src/main/resources/db/migration/` in order, as the owner: `V1__base_tables.sql` (applied to Neon), `V2__login_and_schema_version.sql` (applied; lets the app read the schema version, unique login names), then `V3__safe_matching.sql` and `V4__consent_and_protection.sql` in later steps. The running app never migrates; only `scripts/db-migrate.sh` does.
+- **Flyway** runs the migrations in `server/src/main/resources/db/migration/` in order, as the owner: `V1__base_tables.sql` (applied to Neon), `V2__login_and_schema_version.sql` (applied; lets the app read the schema version, unique login names), `V3__safe_matching.sql`, `V4__consent_and_protection.sql` and `V5__request_message.sql` (all applied to Neon). The running app never migrates; only `scripts/db-migrate.sh` does.
 - Schema changes are new files; an applied migration is never edited.
-- Migrations only contain reference data (the nickname list, in `V2`). Data about people is **fictional only** and lives in a separate seed file, never in a migration.
+- Migrations only contain reference data (the nickname list, in `V3`). Data about people is **fictional only** and lives in a separate seed file, never in a migration.
 
 ---
 
 ## Tests that make the database rules real
 
-I ran these against a throwaway local PostgreSQL 15 on 2026-10-19, by trying to break each rule. **All passed.** In the project they become Testcontainers tests.
+I first ran these against a throwaway local PostgreSQL 15 on 2026-10-19, by trying to break each rule. They now run through `scripts/db-test.sh` on PostgreSQL 18.6, Neon's version (155 checks in all), and **all pass**. The backend tests run the same rules through Testcontainers.
 
 | # | Test | Result |
 | --- | --- | --- |
@@ -662,7 +679,7 @@ I ran these against a throwaway local PostgreSQL 15 on 2026-10-19, by trying to 
 | 13 | `connected` with a blank contact plan | ✅ refused |
 | 14 | Move a connected request to another person, or to another search | ✅ both refused |
 | 15 | Connect or `safe_only` a protected person; protected person in the view | ✅ refused; 0 rows |
-| 16 | Add a `custody_hold` **after** a child was connected | ✅ request switched to `blocked`; child still matchable for the lead |
+| 16 | Add a `custody_hold` **after** a child was connected | ✅ request switched to `blocked`; child still returned by `find_candidates` (database only; no lead search screen yet) |
 | 17 | Connect when the **searcher** is flagged `suspected_abuser` | ✅ refused |
 | 18 | Flag with two subjects; `do_not_disclose` on a search | ✅ both refused |
 | 19 | Editing a person keeps the "before" version and who changed it | ✅ |
@@ -682,16 +699,16 @@ I ran these against a throwaway local PostgreSQL 15 on 2026-10-19, by trying to 
 
 ## Open items
 
-- **Postgres version:** tested on 15 locally; Neon runs a newer version. Testcontainers will run the same tests on Neon's version before the first deploy.
+- **Postgres version:** done. The tests first ran on 15; they now run on 18.6, the version Neon runs.
 - **Neon users:** after the first deploy, check that `homeward_app` and `homeward_maint` are not members of `neon_superuser`, and re-run test 21 with the real credentials.
-- **Retention job:** right now `homeward_maint` only has the *permission* to delete. The job itself (delete people, searches and codes 90 days after the event closes, configurable) and where "event closed" is stored are still to be built. A minimal consent record (who agreed to what, without names) should outlive the purge.
+- **Retention job:** right now `homeward_maint` only has the *permission* to delete. The job itself (delete people, searches and codes 90 days after the event closes, configurable) and where "event closed" is stored are not built (planned). A minimal consent record (who agreed to what, without names) should outlive the purge.
 - **Read scoping:** the app user can read every row; "volunteers only see their own shelter" is enforced by the backend. Row-level security is a possible upgrade.
 - **Undo screen:** snapshots exist; restoring one (and re-checking privacy rules when it's restored) is still to be built.
 - **Matching gaps:** place ("same street", "Seaview Nursing Home"), household and "unaccompanied children first" are planned, not in `find_candidates` yet. Duplicate paper rows typed twice with different IDs are caught by matching and a lead, not by the database.
 - **Code space:** `HW-` + 4 characters gives about 1 million codes. That's enough for 400,000 people, but pre-printed, reissued and voided slips use it up too; the backend retries on a collision, and a 5th character is the fix if it gets tight.
 - **Adults who can't decide for themselves** (e.g. from a nursing home): a lead records the decision, the same way as for children. Not modelled yet.
 - **Deadlocks:** if a "Connect" and a new flag hit the same person at the same moment, PostgreSQL may stop one of them with a deadlock error. Nothing unsafe gets through (one of them is rolled back); the backend retries it once.
-- **Scale:** each way of matching now has an index, but I haven't measured it with hundreds of thousands of people yet. I'll load fake data and time it.
+- **Scale:** each way of matching now has an index, but it is not measured with hundreds of thousands of people yet. At demo scale (about 200 fictional people) `find_candidates` takes about 35 ms on Neon, network round trip included (see `DATABASE_IMPLEMENTATION.md`). The security-barrier view's likely full scan at ~400k people still needs timing with fake data.
 
 ---
 

@@ -85,6 +85,6 @@ Every step: `feature/database-<step>` branch off develop → small commits → `
 
 - `scripts/db-test.sh` exits 0 after every step (fails on any `FAIL` line or SQL error); final run = all 42 existing checks + the new step tests.
 - Schema of V1+V2+V3 matches today's single V1 (tables, columns, constraints, functions, triggers, grants).
-- On Neon: `flyway info` shows V1–V3 applied; role memberships checked; permission tests pass with the real app login.
-- DATABASE.md SQL excerpts still match the migration files (the existing line-by-line check, now over V1–V3).
+- On Neon: `flyway info` shows V1–V5 applied; role memberships checked; permission tests pass with the real app login.
+- DATABASE.md SQL excerpts still match the migration files (the existing line-by-line check, now over V1–V5).
 - Codex review before each PR; findings verified before fixing, as before.

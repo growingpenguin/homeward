@@ -87,7 +87,7 @@ The challenge covers the whole reunification problem. I built **one complete loo
 | Someone doesn't want to be found | *Keep me out of searches* means never suggested, even by exact name. A `do_not_disclose` flag beats "findable". |
 | Searcher may be the person they fled | No match, hidden, pending, declined and blocked all give the **byte-identical** reply `{"type":"Active"}`, at every desk |
 | A flag added **after** "Connect" | The reveal is withdrawn at once (database trigger); the searcher sees "still looking" again |
-| A child, found or searching | Never released by a name match: only a lead at the child's desk, with a guardian check, a note and a preview. An unknown age counts as a child. |
+| A child, found or searching | Never released by a name match: only a lead at the found person's desk, with a guardian check, a note and a preview. An unknown age counts as a child. |
 | No phone | The slip's code + PIN work at any desk; 5 wrong PINs lock it for 15 min, even if sent in parallel |
 | Paper forms, typed in later | Paper mode keeps where it came from ("Sheet 4, line 12") and the date written on the paper; "Check again" finds them for older searches |
 | Bad Wi-Fi, double clicks | Same id on every retry, so stored once; saves waiting for the internet survive the lock |
@@ -100,7 +100,7 @@ The challenge covers the whole reunification problem. I built **one complete loo
 | Layer | Choice | Why (full comparisons in the linked docs) |
 |---|---|---|
 | Database | **PostgreSQL 18 on Neon**, Flyway migrations V1–V5 | `pg_trgm` + `fuzzystrmatch` + `unaccent` for matching in SQL. **Triggers enforce the hardest rules** (children, flags, a request can't move, append-only audit), so a backend bug still can't release a child. The app connects as a least-privilege user. [`DATABASE.md`](DATABASE.md) |
-| Backend | **Kotlin + Spring Boot 4**, Spring JDBC (no JPA), Spring Security | Sealed `SearcherStatus` with no location field: the type system keeps places out of searcher replies. Visible, parameterized SQL. PIN login, CSRF, idle lock. [`BACKEND.md`](BACKEND.md) |
+| Backend | **Kotlin + Spring Boot 4**, Spring JDBC (no JPA), Spring Security | Dedicated match types omit location; `SearcherStatus.Connected` carries only the consented contact plan. Visible, parameterized SQL. PIN login, CSRF, idle lock. [`BACKEND.md`](BACKEND.md) |
 | Frontend | **React 19 + Vite + TypeScript** (strict), TanStack Query, react-hook-form + zod | Types generated from the backend's OpenAPI; retries only where safe; drafts in `sessionStorage`. [`FRONTEND.md`](FRONTEND.md) |
 | Deploy | Netlify (frontend, proxies `/api/*`) → Render (Docker, free) → Neon | One origin for the browser, so the session and CSRF cookies are first-party |
 
@@ -110,14 +110,24 @@ The challenge covers the whole reunification problem. I built **one complete loo
 - **Timing:** a wrong slip code and a wrong PIN take *almost* the same time.
 
 ### Run it locally
+Requires JDK 21 (`JAVA_HOME` pointing to it), Node.js 22.12+ and Docker. Run these checks from the repository root; on this Mac Docker runs through Colima.
+
 ```bash
 colima start                                   # Docker, for the database tests and Testcontainers
-scripts/db-test.sh                             # migrations + seed + 141 SQL checks on PostgreSQL 18.6
-cd server && ./gradlew build                   # 51 backend tests (Testcontainers, app as homeward_app)
-cd client && npm install && npm test && npm run build    # 26 frontend tests
-scripts/run-backend.sh                         # API on :8080 against Neon (needs .env.local)
-cd client && npm run dev                       # http://localhost:5173, proxies /api to :8080
+scripts/db-test.sh                             # migrations + seed + 155 SQL checks on PostgreSQL 18.6
+(cd server && ./gradlew build)                   # 52 backend tests (Testcontainers, app as homeward_app)
+(cd client && npm ci && npm run lint && npm test && npm run build)    # 26 frontend tests
+```
+
+For the app, create an ignored `.env.local` with `HOMEWARD_APP_DATABASE_URL` set to the least-privilege `homeward_app` connection URL for a database provisioned with V1–V5 and the fictional seed (see [`DATABASE_PLAN.md`](DATABASE_PLAN.md)). Do not source the file; the runner parses it. In two terminals, each starting at the repository root:
+
+```bash
+scripts/run-backend.sh                         # terminal 1: API on :8080
+(cd client && npm run dev)                     # terminal 2: http://localhost:5173
 ```
 
 ### How it was built
 Built one step at a time across the three layers, each planned first and logged as it went: [`DATABASE_PLAN.md`](DATABASE_PLAN.md) / [`_IMPLEMENTATION.md`](DATABASE_IMPLEMENTATION.md), [`BACKEND_PLAN.md`](BACKEND_PLAN.md) / [`_IMPLEMENTATION.md`](BACKEND_IMPLEMENTATION.md), [`FRONTEND_PLAN.md`](FRONTEND_PLAN.md) / [`_IMPLEMENTATION.md`](FRONTEND_IMPLEMENTATION.md). It followed git-flow (feature → PR into `develop` → release / hotfix into `main`), and every PR was reviewed before merging; the review tables are in the logs. How AI tools were used, including what they got wrong: [`AI_NOTES.md`](AI_NOTES.md). Design deck: `Homeward_Design.pptx`.
+
+### What remains after the demo
+The core reunion is implemented and tested. A real-person usability study is still planned; the printable blank paper form, full offline mode, automatic search reruns and retention job are not built. Test results establish behavior in the covered cases, not readiness for a real disaster deployment.

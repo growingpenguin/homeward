@@ -235,3 +235,15 @@ The run showed "a lead decides" twice on the card (a backend reason and a fronte
 **Fix:** the handler does nothing when already logged out, and never cancels or removes the public shelter list.
 
 **Test:** the fake backend can now answer slowly (`delayMs`); the shelters are still loading when the late 401 lands. **Old handler → `FAIL`**, fixed → passes. `npm test` **26 passed**, `npm run lint` 0 errors.
+
+## Submission documentation refresh (2026-10-20)
+
+**Branch:** `feature/release-docs`.
+
+Updated `Homeward_Design.pptx` in place, preserving the 16-slide design. It now includes the live frontend/API links, V1–V5, the actual feature packages and classes, current test counts (155 SQL / 52 backend / 26 frontend), the implemented paper-entry/slip behavior, and explicit unfinished usability study, blank paper form, offline mode and retention job. Replaced emoji-only comparison cells with text because they rendered blank in LibreOffice.
+
+README counts now match the reunion tests. Local commands use subshells so running one line does not break the next line's directory. Corrected the child-release desk description and narrowed the response-type claim to permit the consented contact plan.
+
+**Verification:** PowerPoint OOXML validation against the original passed. Exported with LibreOffice and inspected all 16 rendered slides; re-rendered after replacing the missing comparison symbols. Application files are unchanged; the preceding validation remains 155 SQL checks, 52 backend tests and 26 frontend tests passing, frontend lint 0 errors (2 existing warnings), production build passing.
+
+**Independent review:** GPT-6-astra found no material accuracy issues in the changed claims. Its two README suggestions (JDK 21 prerequisite and separate terminal for Vite) were applied. Latest rendered slides include the comparison-cell corrections; earlier montage images were stale.

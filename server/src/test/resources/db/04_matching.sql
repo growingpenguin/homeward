@@ -91,6 +91,7 @@ FROM find_candidates('Maria Garcia', 75, 85);
 SELECT assert_true((SELECT person_id FROM find_candidates('Maria Garcia', 75, 85) LIMIT 1) = 'ffffffff-ffff-4fff-bfff-000000000409',
                    'crowded name: Maria Garcia aged 80 comes back first for 75-85');
 
+CREATE TEMP TABLE fake_flags (person_id uuid, search_id uuid);
 -- M6. Flags: the app can lift a flag, but not rewrite it or switch it back on
 UPDATE safety_flags SET cleared_at = now(), cleared_by = '00000000-0000-0000-0000-0000000000b2'
 WHERE person_id = '00000000-0000-0000-0000-000000000407';
@@ -101,6 +102,8 @@ SELECT expect_fail($$UPDATE safety_flags SET kind = 'custody_hold' WHERE person_
 SELECT expect_fail($$DELETE FROM safety_flags$$, 'app deletes flags');
 SELECT expect_fail($$INSERT INTO safety_flags (kind, created_by) VALUES ('do_not_disclose', '00000000-0000-0000-0000-0000000000b2')$$, 'flag about nobody');
 SELECT expect_fail($$INSERT INTO safety_flags (person_id, search_id, kind, created_by) VALUES ('00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000000491', 'custody_hold', '00000000-0000-0000-0000-0000000000b2')$$, 'flag with two subjects');
+
+SELECT expect_fail($$CREATE TRIGGER t BEFORE INSERT ON pg_temp.fake_flags FOR EACH ROW EXECUTE FUNCTION public.safety_flags_lock()$$, 'attach a flag trigger function to a table of its own');
 
 -- M7. Suggested matches: once per search and person
 INSERT INTO searches (id, shelter_id, sought_names, entered_by)

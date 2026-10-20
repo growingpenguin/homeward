@@ -35,7 +35,8 @@ CREATE TRIGGER safety_flags_lock
     BEFORE INSERT ON safety_flags
     FOR EACH ROW EXECUTE FUNCTION safety_flags_lock();
 
--- A lifted flag stays lifted: switching it back on would skip the lock and the blocking above.
+-- A lifted flag stays lifted: switching it back on would skip the lock above (and, from V4, the
+-- blocking of what was already revealed).
 -- To protect someone again, add a new flag.
 CREATE FUNCTION safety_flags_no_reactivate() RETURNS trigger
 LANGUAGE plpgsql AS $$
@@ -162,6 +163,10 @@ CREATE TRIGGER reunion_codes_keep_person
     FOR EACH ROW EXECUTE FUNCTION reunion_codes_keep_person();
 
 -- ---------- what the app may do ----------
+-- Trigger functions run without this right; revoking it stops the app attaching them to a table of its own.
+REVOKE EXECUTE ON FUNCTION safety_flags_lock(), safety_flags_no_reactivate(), match_candidates_only_findable(),
+                           reunion_codes_keep_person() FROM PUBLIC;
+
 -- Suggestions: add them and record the decision, never rewrite who was suggested or why.
 GRANT SELECT, INSERT ON match_candidates TO homeward_app;
 GRANT UPDATE (decision, reviewed_by) ON match_candidates TO homeward_app;

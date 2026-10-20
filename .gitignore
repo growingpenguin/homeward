@@ -18,3 +18,9 @@ out/
 
 # Office lock files (a document is open)
 ~$*
+
+# Local agent tooling (Neon skills, MCP config, CLI link): kept out of git
+.claude/
+.mcp.json
+skills-lock.json
+.neon

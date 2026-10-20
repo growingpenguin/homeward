@@ -18,7 +18,6 @@ afterEach(() => vi.unstubAllGlobals());
 test("login: missing details and a wrong PIN get plain sentences; the PIN box is emptied", async () => {
   const sent = fakeBackend({
     "GET /api/me": { status: 401 },
-    "GET /api/health": { status: 200, body: { status: "ok" } },
     "GET /api/shelters": { status: 200, body: [shelter] },
     "POST /api/login": { status: 401, body: { message: "That didn't work. Check the shelter, your name and your PIN." } },
   });
@@ -56,7 +55,6 @@ test("a session the server ended goes back to the login", async () => {
   fakeBackend({
     "GET /api/me": { status: 200, body: alex },
     "GET /api/shelters": { status: 200, body: [shelter] },
-    "GET /api/health": { status: 200, body: {} },
     "GET /api/persons/x": { status: 401, body: { expired: true, message: "Your shift session has ended. Please log in again." } },
   });
   render(<App />);
@@ -71,4 +69,43 @@ test("only a person's actions carry the activity header", async () => {
   await stillHere();
   expect(sent[0].headers["X-Homeward-Activity"]).toBeUndefined();
   expect(sent[1].headers["X-Homeward-Activity"]).toBe("1");
+});
+
+test("a reload while the server is locked shows the lock screen, not the login; the right PIN opens the app", async () => {
+  let locked = true;
+  fakeBackend({
+    "GET /api/me": () => (locked ? { status: 401, body: { locked: true, message: "Screen locked." } } : { status: 200, body: alex }),
+    "POST /api/unlock": () => ((locked = false), { status: 200, body: alex }),
+  });
+  render(<App />);
+  const user = userEvent.setup();
+  expect(await screen.findByRole("heading", { name: "Screen locked" })).toBeInTheDocument();
+  await user.type(screen.getByLabelText("Enter your PIN to carry on"), "2468");
+  await user.click(screen.getByRole("button", { name: "Unlock" }));
+  expect(await screen.findByText("Logged in as Volunteer Alex")).toBeInTheDocument();
+});
+
+test("unlocking after the server forgot the session goes to the login instead of 'wrong PIN' forever", async () => {
+  fakeBackend({
+    "GET /api/me": { status: 401, body: { locked: true, message: "Screen locked." } },
+    "POST /api/unlock": { status: 401 },
+    "GET /api/shelters": { status: 200, body: [shelter] },
+  });
+  render(<App />);
+  const user = userEvent.setup();
+  await user.type(await screen.findByLabelText("Enter your PIN to carry on"), "2468");
+  await user.click(screen.getByRole("button", { name: "Unlock" }));
+  expect(await screen.findByRole("heading", { name: "Log in" })).toBeInTheDocument();
+});
+
+test("log out that didn't reach the server keeps the volunteer logged in and says so", async () => {
+  fakeBackend({
+    "GET /api/me": { status: 200, body: alex },
+    "POST /api/logout": { status: 502 },
+  });
+  render(<App />);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Log out" }));
+  expect(await screen.findByText(/Couldn't log out/)).toBeInTheDocument();
+  expect(screen.getByText("Logged in as Volunteer Alex")).toBeInTheDocument();
 });

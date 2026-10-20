@@ -2,7 +2,7 @@
 // Shelter, name, PIN. Wrong details and "too many tries" come back from the backend as plain sentences.
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { getShelters, login, wakeUp } from "../api/client";
+import { getShelters, login } from "../api/client";
 import { HttpError } from "../api/http";
 import type { Me } from "../api/types";
 import { BigButton } from "../components/BigButton";
@@ -15,7 +15,6 @@ const noAnswer = (count: number, e: Error) => count < 3 && (!(e instanceof HttpE
 
 export function LoginPage({ onLoggedIn }: { onLoggedIn: (me: Me) => void }) {
   // Asking for the shelters also wakes the backend while the volunteer types.
-  useQuery({ queryKey: ["wake-up"], queryFn: wakeUp, staleTime: Infinity });
   const shelters = useQuery({ queryKey: ["shelters"], queryFn: getShelters, staleTime: Infinity });
   const [shelterId, setShelterId] = useState("");
   const [name, setName] = useState("");
@@ -28,14 +27,14 @@ export function LoginPage({ onLoggedIn }: { onLoggedIn: (me: Me) => void }) {
     retryDelay: 5_000,
     onSuccess: onLoggedIn,
     onError: (e) => setProblem(e instanceof HttpError && e.status < 500 ? e.message : t.problem.noConnection),
-    onSettled: () => setPin(""),   // never leave a PIN sitting in the box
   });
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!shelterId || !name.trim() || !pin.trim()) return setProblem(t.login.missing);
     setProblem(null);
-    send.mutate({ shelterId, name: name.trim(), pin: pin.trim() });
+    send.mutate({ shelterId, name: name.trim(), pin: pin.trim() }, { onSettled: () => send.reset() });   // drop the PIN from memory too
+    setPin("");   // never leave a PIN sitting in the box, even while a slow login is retried
   };
 
   return (

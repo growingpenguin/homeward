@@ -61,6 +61,8 @@ class ConsentController(
         @Valid @RequestBody body: LookupIn,
         request: HttpServletRequest,
     ): LookupOut {
+        // Every new check starts clean: the previous slip holder is forgotten, even if this one fails.
+        request.getSession(false)?.removeAttribute(VerifiedPerson.SESSION_KEY)
         val personId =
             codes.lookup(body.code!!, body.pin!!, currentStaff.get()) // !!: validated as not blank
                 ?: return LookupOut(false, "That code and PIN didn't match. Please check the slip and try again.", null, emptyList(), 0)
@@ -70,6 +72,13 @@ class ConsentController(
                 SearchAnswer(id, names, visibility.statusForSearcher(id, personId))
             }
         return LookupOut(true, null, requests.personName(personId), searches, requests.waiting(null, personId).size)
+    }
+
+    // Done with this person ("Give the screen back"): their slip no longer opens anything here.
+    @PostMapping("/api/lookup/end")
+    fun endLookup(request: HttpServletRequest): ResponseEntity<Void> {
+        request.getSession(false)?.removeAttribute(VerifiedPerson.SESSION_KEY)
+        return ResponseEntity.noContent().build()
     }
 
     // Requests waiting for an answer: people at this desk, plus the person whose slip was just checked.

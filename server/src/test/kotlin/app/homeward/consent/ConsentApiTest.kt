@@ -167,6 +167,12 @@ class ConsentApiTest : IntegrationTest() {
             status { isConflict() }
             jsonPath("$.message") { value(ConsentService.NEEDS_LEAD) }
         }
+        // "Safe" would also tell them the child is here: a lead decides that too.
+        post(riley, "/api/requests/$req/decision", """{"choice":"SAFE"}""").andExpect { status { isConflict() } }
+        // The lead on the ASKING side can't release a child at another shelter.
+        val jordan = loggedIn(LINCOLN, "Lead Jordan")
+        post(jordan, "/api/lead/requests/$req/release-minor", """{"guardianChecked":true,"note":"x","contactPlan":"x"}""")
+            .andExpect { status { isNotFound() } }
         // A volunteer can't use the lead route at all.
         post(riley, "/api/lead/requests/$req/release-minor", """{"guardianChecked":true,"note":"x","contactPlan":"x"}""")
             .andExpect { status { isForbidden() } }
@@ -243,5 +249,71 @@ class ConsentApiTest : IntegrationTest() {
         assertEquals(1, count("SELECT count(*) FROM reunion_codes WHERE code = '$code' AND locked_until > now()"))
         assertTrue(count("SELECT count(*) FROM audit_log WHERE action = 'CODE_LOOKUP_FAILED' AND target = '$son'") >= 6)
         assertEquals(1, count("SELECT count(*) FROM audit_log WHERE action = 'CODE_LOOKUP' AND target = '$son'"))
+    }
+
+    @Test
+    fun `23 wrong PINs sent at the same time - only 5 are checked, then the slip is locked`() {
+        val alex = loggedIn(LINCOLN, "Volunteer Alex")
+        val p = person(alex, "Quentin Harrowgate", ""","approxAge":50""")
+        val slip = post(alex, "/api/persons/$p/slip").andReturn().response.contentAsString
+        val code = slip.substringAfter("\"code\":\"").substringBefore("\"")
+        val pin = slip.substringAfter("\"pin\":\"").substringBefore("\"")
+        val wrong = if (pin == "1111") "2222" else "1111"
+        val pool =
+            java.util.concurrent.Executors
+                .newFixedThreadPool(23)
+        val start = java.util.concurrent.CountDownLatch(1)
+        val jobs =
+            (1..23).map {
+                pool.submit {
+                    start.await()
+                    post(alex, "/api/lookup", """{"code":"$code","pin":"$wrong"}""")
+                }
+            }
+        start.countDown()
+        jobs.forEach { it.get() }
+        pool.shutdown()
+        assertEquals(1, count("SELECT count(*) FROM reunion_codes WHERE code = '$code' AND locked_until > now()"))
+        // The 5th wrong PIN locked it and reset the count; the other 18 never reached the PIN check.
+        // (Without the row lock, guesses run side by side and the count ends at 23 % 5 = 3.)
+        assertEquals(1, count("SELECT count(*) FROM reunion_codes WHERE code = '$code' AND failed_attempts = 0"))
+        // Locked: even the right PIN gets the same "didn't match".
+        post(alex, "/api/lookup", """{"code":"$code","pin":"$pin"}""").andExpect { jsonPath("$.found") { value(false) } }
+    }
+
+    @Test
+    fun `a lead can't use release-minor to connect an adult who never said yes`() {
+        val alex = loggedIn(LINCOLN, "Volunteer Alex")
+        val riley = loggedIn(EASTSIDE, "Volunteer Riley")
+        val (searchId, req) = requested(alex, person(riley, "Augustin Vale", ""","approxAge":52"""), "Augustin Vale")
+        val morgan = loggedIn(EASTSIDE, "Lead Morgan")
+        post(morgan, "/api/lead/requests/$req/release-minor", """{"guardianChecked":true,"note":"x","contactPlan":"Meet at Eastside"}""")
+            .andExpect { status { isConflict() } }
+        assertEquals("""{"type":"Active"}""", status(alex, searchId))
+    }
+
+    @Test
+    fun `the next slip check forgets the previous person, and a flagged searcher's message is never read out`() {
+        val alex = loggedIn(LINCOLN, "Volunteer Alex")
+        val riley = loggedIn(EASTSIDE, "Volunteer Riley")
+        val casey = loggedIn(WESTFIELD, "Volunteer Casey")
+        val wanted = person(riley, "Philippa Grange", ""","approxAge":33""")
+        val slip = post(riley, "/api/persons/$wanted/slip").andReturn().response.contentAsString
+        val code = slip.substringAfter("\"code\":\"").substringBefore("\"")
+        val pin = slip.substringAfter("\"pin\":\"").substringBefore("\"")
+        val searcher = person(alex, "Tobin Grange", ""","approxAge":36""")
+        val (_, req) = requested(alex, wanted, "Philippa Grange", searcher)
+
+        post(casey, "/api/lookup", """{"code":"$code","pin":"$pin"}""").andExpect { jsonPath("$.answersWaiting") { value(1) } }
+        mvc.get("/api/answers") { session = casey }.andExpect { jsonPath("$[?(@.requestId == '$req')]") { exists() } }
+        // The next person at Casey's desk mistypes their PIN: Philippa's requests are gone from this desk.
+        post(casey, "/api/lookup", """{"code":"HW-ZZZZ","pin":"0000"}""")
+        mvc.get("/api/answers") { session = casey }.andExpect { jsonPath("$[?(@.requestId == '$req')]") { doesNotExist() } }
+
+        // A flag on the searcher: the request disappears from the found person's desk too.
+        mvc.get("/api/answers") { session = riley }.andExpect { jsonPath("$[?(@.requestId == '$req')]") { exists() } }
+        val jordan = loggedIn(LINCOLN, "Lead Jordan")
+        post(jordan, "/api/lead/flags", """{"personId":"$searcher","kind":"suspected_abuser"}""").andExpect { status { isCreated() } }
+        mvc.get("/api/answers") { session = riley }.andExpect { jsonPath("$[?(@.requestId == '$req')]") { doesNotExist() } }
     }
 }

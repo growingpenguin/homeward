@@ -51,7 +51,11 @@ class ConsentService(
         when (body.choice!!) { // !!: validated as present
             Choice.NOT_NOW -> {} // nothing changes; they can answer later
             Choice.DECLINE -> change(r, "declined", null)
-            Choice.SAFE -> change(r, "safe_only", null)
+            Choice.SAFE -> {
+                // "Safe" also tells the other side a child is alive and registered: a lead decides that too.
+                if (r.childInvolved) throw ApiException(HttpStatus.CONFLICT, NEEDS_LEAD)
+                change(r, "safe_only", null)
+            }
             Choice.CONNECT -> {
                 if (r.childInvolved) throw ApiException(HttpStatus.CONFLICT, NEEDS_LEAD)
                 change(r, "connected", plan(body.contactPlan))
@@ -76,7 +80,9 @@ class ConsentService(
         audit.log(staff, "DECISION", requestId)
     }
 
-    // Only a lead or coordinator (the /api/lead/** route), at one of the two desks involved.
+    // Only a lead or coordinator (the /api/lead/** route), only for a request with a child on either side,
+    // and only at the FOUND person's desk: where the child actually is (and can be seen), or, when the
+    // child is the one searching, where the adult being asked says yes in person. Never the asking side alone.
     // The approver is whoever is logged in, never someone named in the request.
     @Transactional
     fun releaseMinor(
@@ -85,7 +91,8 @@ class ConsentService(
     ) {
         val lead = currentStaff.get()
         val r = requests.facts(requestId)
-        if (r == null || (lead.shelterId != r.searchShelterId && lead.shelterId != r.personShelterId)) throw notFound()
+        if (r == null || lead.shelterId != r.personShelterId) throw notFound()
+        if (!r.childInvolved) throw ApiException(HttpStatus.CONFLICT, "No child is involved: the person answers this themselves.")
         if (!body.guardianChecked) throw ApiException(HttpStatus.BAD_REQUEST, "Please confirm you checked the guardian first.")
         val note =
             body.note?.trim()?.ifEmpty { null }

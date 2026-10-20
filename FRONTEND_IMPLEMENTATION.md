@@ -51,6 +51,53 @@ FRONTEND.md updated for #5 and #6.
 
 **After the fixes:** `npm run lint` 0 errors (same 3 warnings) · `npm test` 2 files, 4 tests passed · `npm run build` passed.
 
-## F1–F4
+## F1. Login, home and the safety shell
+
+**Branch:** `feature/frontend-login`
+
+**Done:**
+- `api/client.ts`: one `api()` for every call: same-origin cookies; on a write, the CSRF cookie's value in `X-XSRF-TOKEN` (calls `/api/csrf` first if there's no cookie, e.g. right after login); `X-Homeward-Activity: 1` only for a person's actions; `401 {locked}` → "locked" event, `401 {expired}` or a plain 401 (outside login/unlock and the startup check) → "expired" event.
+- **Login** page: shelter list, name, PIN; plain sentences for missing details, wrong details and "too many tries"; PIN box emptied after every try.
+- **Home**: the three big buttons, shown as "Coming next" until F2/F3; "Logged in as …" and **Log out**.
+- `App`: the session comes from `/api/me`; "expired" or Log out forgets everything loaded and shows the login; logged in, everything sits inside `AppShell` (idle lock).
+- Review items from F0 handled here:
+  - **#2** (Netlify gives up after ~26 s while Render wakes): the login page wakes the backend (`/api/health`, shelters) while the volunteer types, and a login with no answer (network, 502–504) is tried again up to 3 times, 5 s apart; a wrong PIN is never retried.
+  - **#3** (server locks while someone types a long form): typing tells the server once a minute (`stillHere` = `/api/me` with the activity header); when the server says locked, the app locks too.
+  - **#4** (lock dropped saves waiting for the internet): `removeQueries()` instead of `clear()`, so paused saves are kept.
+  - **#9** (generated response fields all optional): `Required<>` on response types in `api/types.ts`; nullable fields stay `| null`.
+- Lock screen shows the backend's sentence for "too many tries" instead of "no connection". Lint warning in `useIdleLock` (`Date.now` during render) fixed.
+
+**Tests:** `npm run lint` 0 errors (2 warnings left, in code F2 wires in) · `npm test` 2 files, **7 passed**:
+login refuses missing details and shows the backend's wrong-login sentence, PIN box emptied, CSRF header and body sent · logged in shows the three actions · the server's `locked` replaces the whole app with the lock screen · the server's `expired` goes back to the login · only `stillHere` carries the activity header.
+
+**Real run** (backend against Neon + `npm run dev`, Playwright browser, fictional Volunteer Alex, demo PIN):
+```
+GET  /api/me       401  (nobody logged in yet → login page)
+GET  /api/health   200, GET /api/shelters 200 (3 demo shelters in the list)
+POST /api/login    200  name typed as "volunteer alex" → "Logged in as Volunteer Alex", three buttons
+reload /anything   → still logged in, back on Home
+POST /api/logout   204  → login page
+```
+The 10-minute lock itself wasn't waited out by hand; the server side is tested in B2 (`AuthTest`), the client side by the test above.
+
+**Review** (`/code-review`; all 10 checked against the code and the backend's `security/` package, all real):
+
+| # | Finding | Fix |
+|---|---|---|
+| 1 | `/api/me` answering `401 {locked}` (focus refetch, reload) showed the login instead of the lock screen | `getMe` returns `"locked"`; the app opens on the lock screen; no refetch on focus |
+| 2 | Locking removed the `["me"]` session query too | Lock keeps `me` |
+| 3 | A failed background refresh of `me` replaced the whole app with "no connection" | Only when there's no data yet |
+| 4 | After the free server restarted, unlock got a plain 401 and said "wrong PIN" forever | A 401 without a sentence = session gone → login |
+| 5 | Log out showed the login even when the server never got the request (session still alive for the next person) | Login page only after the server answers; otherwise "Couldn't log out… you are still logged in" |
+| 6 | Logout didn't clear drafts or unsent saves (could post later under someone else) | `clearAllDrafts()` on Log out; unsent saves dropped when the session ends |
+| 7 | A failed `/api/csrf` sent the write without a token → unexplained 403 | Reported as "no answer" (retried for login) |
+| 8 | Typing the PIN on the lock screen counted as activity (re-locked, pinged the server) | Activity ignored while locked |
+| 9 | PIN stayed in the box during retries and in the mutation cache after | Box emptied on submit, mutation reset when settled. Not fixed: a retry after a 504 that the server did count can add one more failure toward the 15-minute lockout (rare; noted) |
+| 10 | Extra `/api/health` request on the login page | Removed: the shelter list wakes the backend |
+
+**After the fixes:** `npm run lint` 0 errors · `npm test` **10 passed** (new: reload onto a locked server opens the lock screen and the right PIN opens the app · unlock after the server forgot the session goes to the login · a failed log out keeps you logged in and says so) · `npm run build` passed.
+**Real run again** (Volunteer Riley, Eastside): `GET /api/me 401` → `POST /api/login 200` → Home → `GET /api/csrf 200` (login had cleared the cookie) → `POST /api/logout 204` → login page.
+
+## F2–F4
 
 _Not started._

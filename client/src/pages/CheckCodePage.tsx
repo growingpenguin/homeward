@@ -24,7 +24,8 @@ export function CheckCodePage() {
   const [pin, setPin] = useState("");
   const [showing, setShowing] = useState<number | null>(null);   // which search the searcher is looking at
   const lookup = useMutation({
-    mutationFn: () => api<LookupOut>("/api/lookup", { method: "POST", body: { code, pin }, userAction: true }),
+    // The code and PIN are passed in, not read from the boxes: the PIN box is emptied the moment it's sent.
+    mutationFn: (slip: { code: string; pin: string }) => api<LookupOut>("/api/lookup", { method: "POST", body: slip, userAction: true }),
     gcTime: 0,   // nothing about this person stays in memory after the screen closes
     onSuccess: (r) => {
       checked.current = r.found;
@@ -37,7 +38,7 @@ export function CheckCodePage() {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    lookup.mutate();
+    lookup.mutate({ code, pin });
     setPin("");   // never leave a PIN sitting in the box
   };
 

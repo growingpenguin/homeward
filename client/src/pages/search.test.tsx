@@ -57,6 +57,8 @@ test("search: the person looking is registered, cards show reasons (no place), a
   });
   const user = at("/search");
   await user.type(screen.getByLabelText("Their name or nickname"), "Luis Diaz");
+  await user.click(screen.getByRole("button", { name: "Next" }));
+  expect(screen.getByRole("alert")).toHaveTextContent("Please answer: is the person looking 18 or over?");
   await user.click(screen.getByRole("radio", { name: "Yes" }));
   await user.click(screen.getByRole("button", { name: "Next" }));
   await user.type(await screen.findByLabelText(/Name or names/), "Rosa Dias");
@@ -71,6 +73,7 @@ test("search: the person looking is registered, cards show reasons (no place), a
   expect(await screen.findByText("Asked")).toBeInTheDocument();
   const searcher = sent.find((s) => s.path === "/api/persons")!.body as { isMinor: boolean };
   expect(searcher.isMinor).toBe(false);
+  expect(sent.filter((s) => s.path === "/api/searches")).toHaveLength(1);
   expect(sent.find((s) => s.path === "/api/searches/s1/requests")!.body).toEqual({ personId: "p1", message: "Your son Luis is looking for you." });
 });
 
@@ -111,6 +114,7 @@ test("check a code: a miss gets the plain sentence; a match turns the screen aro
   await user.click(screen.getByRole("button", { name: "Check" }));
   expect(await screen.findByText("That code and PIN didn't match. Please check the slip and try again.")).toBeInTheDocument();
   expect(screen.getByLabelText("PIN from the slip")).toHaveValue("");
+  expect(sent.find((s) => s.path === "/api/lookup")!.body).toEqual({ code: "7K3P", pin: "1234" });
   found = true;
   await user.type(screen.getByLabelText("PIN from the slip"), "4821");
   await user.click(screen.getByRole("button", { name: "Check" }));

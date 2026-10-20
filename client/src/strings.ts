@@ -90,6 +90,7 @@ export const t = {
     done: "Done: print their slip",
     checkAgain: "Check again",
     missingName: "Please write the name of the person who is looking.",
+    missingAdult: "Please answer: is the person looking 18 or over?",
   },
   answers: {
     title: "Answers waiting",

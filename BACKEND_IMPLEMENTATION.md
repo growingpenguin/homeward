@@ -251,6 +251,14 @@ unknown field "ssn"                    → {"message":"Something in this form is
 
 **Tests:** `DatabaseUrlTest` (6 pasted forms → the same JDBC URL; a password-looking value fails without being repeated); `./gradlew build` → **51 tests, 0 failed**. The Docker image run with a quoted, space-padded `postgresql://someone:ignored@…` URL → `/api/health` `{"status":"ok","schemaVersion":5}` and `/api/shelters` from Neon as `homeward_app`.
 
+**Live on Render** (after re-pasting the values; Blueprint `homeward`, service `homeward-api`, free plan, Ohio): `https://homeward-api-fjrc.onrender.com` (Render added `-fjrc`: the plain name was taken, so the address guessed in `netlify.toml` answered nothing / 503).
+```
+GET /api/health    → {"status":"ok","schemaVersion":5}  200 in 0.19 s (awake)
+GET /api/shelters  → the 3 demo shelters from Neon       200
+GET /api/me        → 401 without a login
+```
+Hotfix 0.3.2 points `client/netlify.toml` at this address.
+
 ## B6
 
 _Not started (re-planned in plan mode when reached)._

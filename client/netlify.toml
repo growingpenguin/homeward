@@ -5,10 +5,10 @@
 
 # /api goes to the backend on Render through Netlify, so the browser sees one site:
 # the session and CSRF cookies stay first-party.
-# The host is the Render service name from render.yaml; confirm it once the service is live.
+# The live Render service (Render added "-fjrc" because the plain name was taken).
 [[redirects]]
   from = "/api/*"
-  to = "https://homeward-api.onrender.com/api/:splat"
+  to = "https://homeward-api-fjrc.onrender.com/api/:splat"
   status = 200
   force = true
 

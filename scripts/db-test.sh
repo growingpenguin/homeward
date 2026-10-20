@@ -15,22 +15,21 @@ NAME="homeward-db-test-$$"
 MIGRATIONS="server/src/main/resources/db/migration"
 TESTS="server/src/test/resources/db"
 
-cleanup() { docker rm -f "$NAME" >/dev/null 2>&1 || true; }
+cleanup() { docker rm -fv "$NAME" >/dev/null 2>&1 || true; }   # -v: also remove the database volume
 trap cleanup EXIT
 
 docker run -d --name "$NAME" -e POSTGRES_USER=owner -e POSTGRES_PASSWORD=test -e POSTGRES_DB=homeward "$IMAGE" >/dev/null
 
-# The image starts a temporary server first, then restarts; wait until two checks in a row succeed.
+# The image first starts a temporary server that only listens on the local socket, then restarts.
+# Checking over TCP (-h 127.0.0.1) means only the final server can answer.
 ready=0
 for _ in $(seq 1 120); do
-  if docker exec "$NAME" psql -U owner -d homeward -tAc 'SELECT 1' >/dev/null 2>&1; then
-    ready=$((ready + 1)); [ "$ready" -ge 2 ] && break
-  else
-    ready=0
+  if docker exec -e PGPASSWORD=test "$NAME" psql -h 127.0.0.1 -U owner -d homeward -tAc 'SELECT 1' >/dev/null 2>&1; then
+    ready=1; break
   fi
   sleep 0.5
 done
-[ "$ready" -ge 2 ] || { echo "PostgreSQL did not start"; exit 1; }
+[ "$ready" -eq 1 ] || { echo "PostgreSQL did not start"; exit 1; }
 
 run_sql() {  # run_sql <file> : apply one SQL file, stop at the first error
   docker exec -i "$NAME" psql -X -q -U owner -d homeward -v ON_ERROR_STOP=1 < "$1"

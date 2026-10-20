@@ -213,11 +213,18 @@ RESULT: FAILED
 
 Result after fixes: `02_seed.sql: 5 passed`, `03_registration.sql: 18 passed`, `RESULT: all passed`.
 
-## Step 4. Safe matching (`V2__safe_matching.sql`)
+## Backend-driven migration: `V2__login_and_schema_version.sql`
+
+**Date:** 2026-10-20 · added by backend step B0 (details in `BACKEND_IMPLEMENTATION.md`)
+- Lets `homeward_app` read Flyway's history table (so the app can refuse to start on an older schema) and makes login names unique per shelter.
+- `scripts/db-test.sh`: `10_login.sql: 3 passed`. Applied to Neon with `scripts/db-migrate.sh migrate` → schema version **2**.
+- Because V2 is taken, the planned migrations for steps 4 and 5 are now **V3** (`V3__safe_matching.sql`) and **V4** (`V4__consent_and_protection.sql`); DATABASE_PLAN.md updated.
+
+## Step 4. Safe matching (`V3__safe_matching.sql`)
 
 _Not started._
 
-## Step 5. Consent and protection (`V3__consent_and_protection.sql`)
+## Step 5. Consent and protection (`V4__consent_and_protection.sql`)
 
 _Not started._
 

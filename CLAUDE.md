@@ -84,14 +84,19 @@ Homeward_Design.pptx             Design deck (database, backend and frontend)
 README.md                        Submission README (overview, full picture, design, technical choices)
 ```
 
-## Commands (fill in once scaffolded)
+## Commands
 
 ```bash
-# backend (from server/)
-./gradlew bootRun            # run API on :8080 (needs DATABASE_URL)
-./gradlew test               # JUnit + Testcontainers (needs Docker)
-./gradlew ktlintCheck        # lint
-./gradlew build              # build jar for the Docker image
+# database (from the repo root; needs Docker: `colima start`)
+scripts/db-test.sh           # migrations + demo seed + every SQL test on PostgreSQL 18.6 (Neon's version)
+scripts/db-test.sh --draft   # the full schema draft and its checks
+scripts/db-migrate.sh info   # which migrations are applied on Neon (read-only)
+scripts/db-migrate.sh migrate  # apply pending migrations to Neon, as the owner (only after db-test passes)
+
+# backend (needs JDK 21: export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home)
+scripts/run-backend.sh       # run the API on :8080 against Neon, as homeward_app (from the repo root)
+cd server && ./gradlew build # compile + ktlint + all tests (Testcontainers, PostgreSQL 18.6, app as homeward_app)
+cd server && ./gradlew ktlintFormat  # fix formatting
 
 # frontend (from client/)
 npm install
@@ -111,7 +116,7 @@ Run the backend tests + lint and the frontend lint + tests before every commit.
 - Controllers stay thin. **What a searcher may see is decided in one place**, `VisibilityService` (`server/src/main/kotlin/app/homeward/service/VisibilityService.kt`), and **consent decisions** (connect, safe, say no, child release) in `ConsentService`, so the privacy rules live in two known places. Do not filter location fields ad hoc inside controllers.
 - **Searcher-facing responses use their own types** (`web/dto/searcher/`, e.g. `sealed interface SearcherStatus`) that have **no location fields**. Never reuse staff-internal DTOs for searcher-facing endpoints.
 - Spring JDBC with **parameterized SQL only**, never string-concatenated queries. No JPA/Hibernate: matching SQL must stay visible.
-- Schema changes go in a new Flyway migration (`V2__...sql`); never edit an applied migration.
+- Schema changes go in a new Flyway migration (`V<n>__...sql`); never edit an applied migration. The app never migrates: test with `scripts/db-test.sh`, apply with `scripts/db-migrate.sh migrate`.
 - Matching returns `MatchCandidate(score, reasons: List<String>)` where reasons are human-readable strings shown to volunteers.
 - Keep the backend light for Render's free tier: no unused Spring starters, lazy initialization on.
 - Secrets come from env vars (`DATABASE_URL`, `SESSION_SECRET`); never commit `.env`.

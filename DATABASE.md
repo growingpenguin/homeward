@@ -631,7 +631,7 @@ GRANT SELECT, DELETE ON persons, searches, reunion_codes TO homeward_maint;
 
 ## Migrations
 
-- **Flyway** runs the migrations in `server/src/main/resources/db/migration/` in order, as the owner: `V1__base_tables.sql` (applied to Neon), then `V2__safe_matching.sql` and `V3__consent_and_protection.sql` in later steps.
+- **Flyway** runs the migrations in `server/src/main/resources/db/migration/` in order, as the owner: `V1__base_tables.sql` (applied to Neon), `V2__login_and_schema_version.sql` (applied; lets the app read the schema version, unique login names), then `V3__safe_matching.sql` and `V4__consent_and_protection.sql` in later steps. The running app never migrates; only `scripts/db-migrate.sh` does.
 - Schema changes are new files; an applied migration is never edited.
 - Migrations only contain reference data (the nickname list, in `V2`). Data about people is **fictional only** and lives in a separate seed file, never in a migration.
 

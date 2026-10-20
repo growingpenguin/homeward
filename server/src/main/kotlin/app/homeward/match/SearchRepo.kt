@@ -129,7 +129,8 @@ class SearchRepo(
             .sql(
                 """
                 INSERT INTO match_candidates (search_id, person_id, score, reasons)
-                VALUES (:searchId, :personId, :score, to_jsonb(CAST(:reasons AS text[])))
+                SELECT :searchId, :personId, :score, to_jsonb(CAST(:reasons AS text[]))
+                WHERE EXISTS (SELECT 1 FROM search_candidates c WHERE c.id = :personId) -- hidden a moment ago: skip, don't fail
                 ON CONFLICT (search_id, person_id) DO NOTHING
                 """.trimIndent(),
             ).param("searchId", searchId)
@@ -139,18 +140,28 @@ class SearchRepo(
             .update()
     }
 
-    // The cards, read THROUGH the view: someone hidden or protected since they were suggested drops out.
+    // Which suggestions this search may show:
+    //  - not requested yet: only while matching may still find them (the view) and no flag is on them;
+    //  - already requested: always, whatever the person chose since (hidden, declined, protected, waiting),
+    //    so the searcher's desk can't tell those apart (the answer itself comes only from VisibilityService).
+    private val shown = """
+        mc.search_id = :searchId AND mc.decision <> 'rejected'
+        AND (EXISTS (SELECT 1 FROM contact_requests cr WHERE cr.search_id = mc.search_id AND cr.person_id = mc.person_id)
+             OR (EXISTS (SELECT 1 FROM search_candidates c WHERE c.id = mc.person_id)
+                 AND NOT EXISTS (SELECT 1 FROM safety_flags f WHERE f.person_id = mc.person_id AND f.cleared_at IS NULL)))
+    """
+
     fun cards(searchId: UUID): List<MatchCard> =
         jdbc
             .sql(
                 """
-                SELECT c.id, c.preferred_name, c.approx_age, c.age_is_estimate, c.minor, mc.score,
+                SELECT p.id, p.preferred_name, p.approx_age, p.age_is_estimate, treated_as_minor(p) AS minor, mc.score,
                        ARRAY(SELECT jsonb_array_elements_text(mc.reasons)) AS reasons,
-                       EXISTS (SELECT 1 FROM contact_requests cr WHERE cr.search_id = mc.search_id AND cr.person_id = c.id) AS requested
+                       EXISTS (SELECT 1 FROM contact_requests cr WHERE cr.search_id = mc.search_id AND cr.person_id = p.id) AS requested
                 FROM match_candidates mc
-                JOIN search_candidates c ON c.id = mc.person_id
-                WHERE mc.search_id = :searchId AND mc.decision <> 'rejected'
-                ORDER BY mc.score DESC, c.preferred_name
+                JOIN persons p ON p.id = mc.person_id
+                WHERE $shown
+                ORDER BY mc.score DESC, p.preferred_name
                 """.trimIndent(),
             ).param("searchId", searchId)
             .query { rs, _ ->
@@ -166,17 +177,27 @@ class SearchRepo(
                 )
             }.list()
 
-    fun isVisibleSuggestion(
+    // Any active flag on this search or on the person searching: they get no suggestions at all
+    // (the same empty list as "no match"), so a flagged searcher's desk learns nothing.
+    fun searchIsFlagged(search: StoredSearch): Boolean =
+        jdbc
+            .sql(
+                """
+                SELECT EXISTS (SELECT 1 FROM safety_flags f WHERE f.cleared_at IS NULL
+                               AND (f.search_id = :searchId OR f.person_id = :searcher))
+                """.trimIndent(),
+            ).param("searchId", search.id)
+            .param("searcher", search.searcherPersonId)
+            .query(Boolean::class.java)
+            .single()
+
+    fun isShownSuggestion(
         searchId: UUID,
         personId: UUID,
     ): Boolean =
         jdbc
-            .sql(
-                """
-                SELECT EXISTS (SELECT 1 FROM match_candidates mc JOIN search_candidates c ON c.id = mc.person_id
-                               WHERE mc.search_id = :searchId AND mc.person_id = :personId AND mc.decision <> 'rejected')
-                """.trimIndent(),
-            ).param("searchId", searchId)
+            .sql("SELECT EXISTS (SELECT 1 FROM match_candidates mc WHERE $shown AND mc.person_id = :personId)")
+            .param("searchId", searchId)
             .param("personId", personId)
             .query(Boolean::class.java)
             .single()
@@ -195,17 +216,14 @@ class SearchRepo(
             .param("searchId", searchId)
             .param("personId", personId)
             .update()
-        if (message != null) {
-            jdbc
-                .sql("UPDATE searches SET message = :message WHERE id = :searchId")
-                .param("message", message)
-                .param("searchId", searchId)
-                .update()
-        }
         jdbc
             .sql(
-                "INSERT INTO contact_requests (search_id, person_id) VALUES (:searchId, :personId) ON CONFLICT (search_id, person_id) DO NOTHING",
-            ).param("searchId", searchId)
+                """
+                INSERT INTO contact_requests (search_id, person_id, message) VALUES (:searchId, :personId, :message)
+                ON CONFLICT (search_id, person_id) DO NOTHING
+                """.trimIndent(),
+            ).param("message", message) // a re-send keeps the first request and its message
+            .param("searchId", searchId)
             .param("personId", personId)
             .update()
         return jdbc

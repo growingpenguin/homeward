@@ -133,8 +133,10 @@ class SearchApiTest : IntegrationTest() {
         val riley = loggedIn(EASTSIDE, "Volunteer Riley")
         val henrik =
             person(riley, "Henrik Solberg", ""","source":"paper","paperRef":"Sheet 9, line 3","recordedAt":"2026-10-19T12:00:00Z"""")
+        // Opening the search only reads it: nobody new until "Check again".
+        mvc.get("/api/searches/$searchId") { session = alex }.andExpect { jsonPath("$.matches.length()") { value(0) } }
         repeat(2) {
-            mvc.get("/api/searches/$searchId") { session = alex }.andExpect {
+            post(alex, "/api/searches/$searchId/check", "{}").andExpect {
                 status { isOk() }
                 jsonPath("$.matches.length()") { value(1) }
                 jsonPath("$.matches[0].personId") { value(henrik.toString()) }
@@ -143,6 +145,7 @@ class SearchApiTest : IntegrationTest() {
         assertEquals(1, count("SELECT count(*) FROM match_candidates WHERE search_id = '$searchId'"))
         // Another desk can't open this search.
         mvc.get("/api/searches/$searchId") { session = riley }.andExpect { status { isNotFound() } }
+        post(riley, "/api/searches/$searchId/check", "{}").andExpect { status { isNotFound() } }
     }
 
     @Test
@@ -189,5 +192,94 @@ class SearchApiTest : IntegrationTest() {
             status { isBadRequest() }
             jsonPath("$.message") { value("Please register the person who is looking first.") }
         }
+    }
+
+    private fun flag(sql: String) = TestDatabase.asOwner { it.createStatement().execute(sql) }
+
+    private fun searchId(body: String) = UUID.fromString(body.substringAfter("\"searchId\":\"").substringBefore("\""))
+
+    @Test
+    fun `a flagged searcher or search gets no suggestions and can't send requests, and flagged people aren't suggested`() {
+        val riley = loggedIn(EASTSIDE, "Volunteer Riley")
+        val wanted = person(riley, "Cordelia Stavros", ""","approxAge":30""")
+        val held = person(riley, "Cordelia Stavrou", ""","approxAge":8""")
+        flag(
+            "INSERT INTO safety_flags (person_id, kind, created_by) VALUES ('$held', 'custody_hold', 'd0000000-0000-0000-0000-0000000000b2')",
+        )
+        val alex = loggedIn(LINCOLN, "Volunteer Alex")
+        val searcher = person(alex, "Nikos Stavros", ""","approxAge":35""")
+        val body =
+            search(alex, searcher, "\"Cordelia Stavros\"")
+                .andExpect { jsonPath("$.matches.length()") { value(1) } }
+                .andReturn()
+                .response.contentAsString
+        assertFalse(body.contains(held.toString()), "a person under a custody hold must not be suggested")
+        flag(
+            "INSERT INTO safety_flags (person_id, kind, created_by) VALUES ('$searcher', 'suspected_abuser', 'd0000000-0000-0000-0000-0000000000a2')",
+        )
+        val id = searchId(body)
+        post(alex, "/api/searches/$id/check", "{}").andExpect { jsonPath("$.matches.length()") { value(0) } }
+        post(alex, "/api/searches/$id/requests", """{"personId":"$wanted"}""").andExpect { status { isNotFound() } }
+        assertEquals(0, count("SELECT count(*) FROM contact_requests WHERE search_id = '$id'"))
+    }
+
+    @Test
+    fun `a requested card stays when the person hides later, like any other answer`() {
+        val riley = loggedIn(EASTSIDE, "Volunteer Riley")
+        val wanted = person(riley, "Evander Lockhart", ""","approxAge":60""")
+        val alex = loggedIn(LINCOLN, "Volunteer Alex")
+        val id =
+            searchId(
+                search(
+                    alex,
+                    person(alex, "Mae Lockhart", ""","approxAge":58"""),
+                    "\"Evander Lockhart\"",
+                ).andReturn().response.contentAsString,
+            )
+        post(alex, "/api/searches/$id/requests", """{"personId":"$wanted","message":"Mae is looking for you."}""").andExpect {
+            status { isCreated() }
+        }
+        flag("UPDATE persons SET visibility = 'hidden' WHERE id = '$wanted'")
+        mvc.get("/api/searches/$id") { session = alex }.andExpect {
+            jsonPath("$.matches.length()") { value(1) }
+            jsonPath("$.matches[0].requested") { value(true) }
+        }
+        // Re-sending still answers 201, the same as for anyone else.
+        post(
+            alex,
+            "/api/searches/$id/requests",
+            """{"personId":"$wanted","message":"different text"}""",
+        ).andExpect { status { isCreated() } }
+        assertEquals(1, count("SELECT count(*) FROM contact_requests WHERE search_id = '$id' AND message = 'Mae is looking for you.'"))
+    }
+
+    @Test
+    fun `a nickname alone finds the full name`() {
+        val riley = loggedIn(EASTSIDE, "Volunteer Riley")
+        val william = person(riley, "William Thistlewood", ""","approxAge":65""")
+        val alex = loggedIn(LINCOLN, "Volunteer Alex")
+        // The rule itself: a nickname match alone (spelling almost nothing alike) is enough to be suggested.
+        assertTrue(MatchingService.score(Signals(william, 0.05, 0, true, null, false)) >= MatchingService.MIN_SCORE)
+        // Through the API ("Bill" alone would also bring every real "Bill" in the demo seed first).
+        search(alex, person(alex, "Ada Thistlewood", ""","approxAge":40"""), "\"Bill Thistlewood\"").andExpect {
+            jsonPath("$.matches[?(@.personId == '$william')].reasons[*]") {
+                value(org.hamcrest.Matchers.hasItem("a nickname matches William Thistlewood"))
+            }
+        }
+    }
+
+    @Test
+    fun `a re-sent search returns the saved one, but a changed form gets a clear answer`() {
+        val alex = loggedIn(LINCOLN, "Volunteer Alex")
+        val searcher = person(alex, "Gideon Farrow", ""","approxAge":40""")
+        val id = UUID.randomUUID()
+        val form = """{"id":"$id","searcherPersonId":"$searcher","soughtNames":["Beatrix Farrow"]}"""
+        post(alex, "/api/searches", form).andExpect { status { isCreated() } }
+        post(alex, "/api/searches", form).andExpect { status { isOk() } }
+        post(alex, "/api/searches", form.replace("Beatrix", "Beatrice")).andExpect {
+            status { isConflict() }
+            jsonPath("$.message") { value("This search was already saved. Please start a new search to change it.") }
+        }
+        assertEquals(1, count("SELECT count(*) FROM searches WHERE id = '$id'"))
     }
 }

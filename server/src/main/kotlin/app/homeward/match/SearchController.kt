@@ -29,6 +29,11 @@ class SearchController(
         @PathVariable id: UUID,
     ) = service.get(id)
 
+    @PostMapping("/api/searches/{id}/check")
+    fun checkAgain(
+        @PathVariable id: UUID,
+    ) = service.checkAgain(id)
+
     @PostMapping("/api/searches/{id}/requests")
     fun request(
         @PathVariable id: UUID,

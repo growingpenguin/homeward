@@ -127,6 +127,21 @@ LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
     LIMIT 100
 $$;
 
+-- Only someone matching may find can be suggested: never a hidden, protected or departed person,
+-- even if the app (or a bug in it) writes the row directly.
+CREATE FUNCTION match_candidates_only_findable() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM search_candidates c WHERE c.id = NEW.person_id) THEN
+        RAISE EXCEPTION 'this person can''t be suggested as a match' USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NEW;
+END $$;
+
+CREATE TRIGGER match_candidates_only_findable
+    BEFORE INSERT ON match_candidates
+    FOR EACH ROW EXECUTE FUNCTION match_candidates_only_findable();
+
 -- ---------- slips stay with their person ----------
 -- A pre-printed slip (no person yet) can be handed out once; after that its person, code and PIN
 -- can't change, because whoever holds the slip would then read another person's answers.
@@ -146,7 +161,9 @@ CREATE TRIGGER reunion_codes_keep_person
     FOR EACH ROW EXECUTE FUNCTION reunion_codes_keep_person();
 
 -- ---------- what the app may do ----------
-GRANT SELECT, INSERT, UPDATE ON match_candidates TO homeward_app;
+-- Suggestions: add them and record the decision, never rewrite who was suggested or why.
+GRANT SELECT, INSERT ON match_candidates TO homeward_app;
+GRANT UPDATE (decision, reviewed_by) ON match_candidates TO homeward_app;
 GRANT SELECT ON nicknames, search_candidates TO homeward_app;
 GRANT EXECUTE ON FUNCTION find_candidates(text, int, int) TO homeward_app;
 

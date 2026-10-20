@@ -90,6 +90,10 @@ VALUES ('00000000-0000-0000-0000-000000000491', '00000000-0000-0000-0000-0000000
 SELECT 'ok, allowed: app stores a suggested match';
 SELECT expect_fail($$INSERT INTO match_candidates (search_id, person_id, score, reasons) VALUES ('00000000-0000-0000-0000-000000000491', '00000000-0000-0000-0000-000000000401', 0.5, '[]')$$, 'same person suggested twice for one search');
 SELECT expect_fail($$INSERT INTO match_candidates (search_id, person_id, score, reasons) VALUES ('00000000-0000-0000-0000-000000000491', '00000000-0000-0000-0000-000000000402', 1.5, '[]')$$, 'score above 1');
+SELECT expect_fail($$INSERT INTO match_candidates (search_id, person_id, score, reasons) VALUES ('00000000-0000-0000-0000-000000000491', '00000000-0000-0000-0000-000000000405', 0.9, '[]')$$, 'suggest a hidden person directly');
+SELECT expect_fail($$UPDATE match_candidates SET person_id = '00000000-0000-0000-0000-000000000405' WHERE search_id = '00000000-0000-0000-0000-000000000491'$$, 'rewrite who was suggested');
+UPDATE match_candidates SET decision = 'confirmed', reviewed_by = '00000000-0000-0000-0000-0000000000b1' WHERE search_id = '00000000-0000-0000-0000-000000000491';
+SELECT 'ok, allowed: a volunteer confirms a suggested match';
 
 -- M8. A handed-out slip stays with its person; a pre-printed one can be handed out once
 RESET ROLE;

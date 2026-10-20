@@ -18,6 +18,15 @@ class SearchService(
     @Transactional
     fun start(r: StartSearchRequest): Pair<SearchResult, Boolean> {
         val staff = currentStaff.get()
+        // A re-sent form (same id) returns the search that was saved, unless the form was changed in between.
+        searches.find(r.id!!)?.let { saved ->
+            // !!: validated as present
+            val sameForm = saved.searcherPersonId == r.searcherPersonId && saved.soughtNames == r.soughtNames!!.map { it.trim() }
+            if (saved.shelterId != staff.shelterId || !sameForm) {
+                throw ApiException(HttpStatus.CONFLICT, "This search was already saved. Please start a new search to change it.")
+            }
+            return result(saved) to false
+        }
         if (r.ageMin != null && r.ageMax != null && r.ageMin > r.ageMax) {
             throw ApiException(HttpStatus.BAD_REQUEST, "Please check the ages: the first should be the smaller one.")
         }
@@ -34,10 +43,18 @@ class SearchService(
         return result(search) to created
     }
 
+    // Opening a saved search only reads it.
+    @Transactional(readOnly = true)
+    fun get(id: UUID): SearchResult {
+        val search = ownSearch(id)
+        val cards = if (searches.searchIsFlagged(search)) emptyList() else searches.cards(search.id)
+        return SearchResult(search.id, search.searcherPersonId, search.soughtNames, cards)
+    }
+
     // "Check again": runs matching again, so someone registered since (e.g. a paper form typed in
     // tonight) can still be suggested for yesterday's search.
     @Transactional
-    fun get(id: UUID): SearchResult = result(ownSearch(id))
+    fun checkAgain(id: UUID): SearchResult = result(ownSearch(id))
 
     @Transactional
     fun request(
@@ -47,8 +64,8 @@ class SearchService(
         val staff = currentStaff.get()
         val search = ownSearch(searchId)
         val personId = body.personId!! // !!: validated as present
-        // Only someone this search suggested and matching may still find (not hidden or protected since).
-        if (!searches.isVisibleSuggestion(search.id, personId)) {
+        // Only someone this search shows (see SearchRepo.shown), and never from a flagged search or searcher.
+        if (searches.searchIsFlagged(search) || !searches.isShownSuggestion(search.id, personId)) {
             throw ApiException(HttpStatus.NOT_FOUND, "That person isn't one of the suggested matches.")
         }
         val requestId = searches.request(search.id, personId, staff.staffId, body.message?.trim()?.ifEmpty { null })
@@ -57,8 +74,10 @@ class SearchService(
     }
 
     private fun result(search: StoredSearch): SearchResult {
-        matching.run(search)
         audit.log(currentStaff.get(), "SEARCH", search.id)
+        // A flagged search or searcher gets the same empty list as "no match", and nothing is suggested.
+        if (searches.searchIsFlagged(search)) return SearchResult(search.id, search.searcherPersonId, search.soughtNames, emptyList())
+        matching.run(search)
         return SearchResult(search.id, search.searcherPersonId, search.soughtNames, searches.cards(search.id))
     }
 

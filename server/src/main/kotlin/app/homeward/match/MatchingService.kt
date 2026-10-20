@@ -36,15 +36,15 @@ class MatchingService(
     }
 
     companion object {
-        const val MIN_SCORE = 0.35
+        const val MIN_SCORE = 0.3
         const val MAX_SUGGESTIONS = 10
 
-        // 0..1. Spelling counts most; a sound-alike or nickname helps a misspelling; the right age adds a
+        // 0..1. Spelling counts most; a sound-alike helps a misspelling, a nickname counts on its own; the right age adds a
         // little, the wrong age takes a little (ages are often guesses, so never much).
         fun score(s: Signals): Double {
             var score = 0.6 * s.nameSimilarity
             score += min(s.wordsSoundAlike, 2) * 0.15
-            if (s.nicknameMatch) score += 0.2
+            if (s.nicknameMatch) score += 0.3 // enough on its own: "Bill" alone should find William
             when (s.ageClose) {
                 true -> score += 0.1
                 false -> score -= 0.15

@@ -8,8 +8,11 @@ import type { Me } from "./api/types";
 import { AppShell } from "./components/AppShell";
 import { clearAllDrafts } from "./hooks/useDraft";
 import { ConnectionBanner } from "./components/ConnectionBanner";
+import { EditPage } from "./pages/EditPage";
 import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
+import { RegisterPage } from "./pages/RegisterPage";
+import { SlipPage } from "./pages/SlipPage";
 import { t } from "./strings";
 
 function Session() {
@@ -68,6 +71,9 @@ function Session() {
         <h1>{t.appName}</h1>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          {me.data !== "locked" && <Route path="/register" element={<RegisterPage key={me.data.staffId} staffId={me.data.staffId} />} />}
+          <Route path="/persons/:id/slip" element={<SlipPage />} />
+          <Route path="/persons/:id/edit" element={<EditPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

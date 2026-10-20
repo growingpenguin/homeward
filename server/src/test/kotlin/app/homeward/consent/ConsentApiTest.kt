@@ -456,6 +456,74 @@ class ConsentApiTest : IntegrationTest() {
         assertEquals(1, audited("CODE_LOOKUP", "Volunteer Casey", son), "successful slip check audit")
     }
 
+    // Sends the same kind of request from several threads at once; returns the status codes.
+    private fun inParallel(calls: List<() -> Int>): List<Int> {
+        val pool =
+            java.util.concurrent.Executors
+                .newFixedThreadPool(calls.size)
+        val start = java.util.concurrent.CountDownLatch(1)
+        val jobs =
+            calls.map { call ->
+                pool.submit<Int> {
+                    start.await()
+                    call()
+                }
+            }
+        start.countDown()
+        val statuses = jobs.map { it.get() }
+        pool.shutdown()
+        return statuses
+    }
+
+    @Test
+    fun `different answers sent at the same time to one pending request - exactly one wins, the rest are told it was answered`() {
+        val alex = loggedIn(LINCOLN, "Volunteer Alex")
+        val riley = loggedIn(EASTSIDE, "Volunteer Riley")
+        val (searchId, req) = requested(alex, person(riley, "Ambrose Winterbourne", ""","approxAge":55"""), "Ambrose Winterbourne")
+        val answers =
+            listOf(
+                """{"choice":"CONNECT","contactPlan":"Call the Eastside desk"}""",
+                """{"choice":"DECLINE"}""",
+                """{"choice":"SAFE"}""",
+                """{"choice":"CONNECT","contactPlan":"Meet at the front door"}""",
+            )
+        val statuses =
+            inParallel(
+                answers.map { body ->
+                    { post(loggedIn(EASTSIDE, "Volunteer Riley"), "/api/requests/$req/decision", body).andReturn().response.status }
+                },
+            )
+        assertEquals(1, statuses.count { it == 204 }, "exactly one answer wins: $statuses")
+        assertEquals(answers.size - 1, statuses.count { it == 409 }, "the others get 409: $statuses")
+        assertEquals(1, count("SELECT count(*) FROM audit_log WHERE action = 'DECISION' AND target = '$req'"))
+        // The searcher sees exactly the winner's answer, never a mix.
+        val state =
+            TestDatabase.asOwner { c ->
+                c.createStatement().executeQuery("SELECT state FROM contact_requests WHERE id = '$req'").use {
+                    it.next()
+                    it.getString(1)
+                }
+            }
+        val shown = status(alex, searchId)
+        when (state) {
+            "connected" -> assertTrue(shown.startsWith("""{"type":"Connected""""), shown)
+            "safe_only" -> assertEquals("""{"type":"Safe"}""", shown)
+            else -> assertEquals("""{"type":"Active"}""", shown)
+        }
+    }
+
+    @Test
+    fun `pressing Connect twice at the same time connects once and audits one decision`() {
+        val alex = loggedIn(LINCOLN, "Volunteer Alex")
+        val riley = loggedIn(EASTSIDE, "Volunteer Riley")
+        val (_, req) = requested(alex, person(riley, "Leopold Thistlewood", ""","approxAge":55"""), "Leopold Thistlewood")
+        val connect = """{"choice":"CONNECT","contactPlan":"Call the Eastside desk"}"""
+        val statuses = inParallel(List(2) { { post(riley, "/api/requests/$req/decision", connect).andReturn().response.status } })
+        assertEquals(listOf(204, 409), statuses.sorted(), "one Connect works, the other is told it was answered")
+        assertEquals(1, count("SELECT count(*) FROM audit_log WHERE action = 'DECISION' AND target = '$req'"))
+        assertEquals(1, count("SELECT count(*) FROM contact_requests WHERE id = '$req' AND state = 'connected'"))
+    }
+
     @Test
     fun `protecting someone twice keeps one flag, and a flagged child is not offered for release`() {
         val alex = loggedIn(LINCOLN, "Volunteer Alex")

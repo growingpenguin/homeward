@@ -3,10 +3,27 @@
 // easy to check for jargon, and ready for Spanish later.
 export const t = {
   appName: "Homeward",
+  login: {
+    title: "Log in",
+    shelter: "Your shelter",
+    choose: "Choose your shelter",
+    name: "Your name",
+    pin: "Your PIN",
+    submit: "Log in",
+    missing: "Please choose your shelter, and write your name and PIN.",
+  },
   home: {
     here: "Someone is here",
     looking: "Someone is looking for family",
     code: "Check a code",
+    comingNext: "Coming next",
+    hello: (name: string) => `Logged in as ${name}`,
+    logout: "Log out",
+  },
+  problem: {
+    server: "Something went wrong on our side. Please try again.",
+    noConnection: "Couldn't reach Homeward. Check the internet and try again.",
+    tryAgain: "Try again",
   },
   say: "Say:",
   steps: {

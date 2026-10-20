@@ -13,3 +13,7 @@ button, input, select, textarea { min-height: var(--tap-min); min-width: var(--t
 .keypad { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--tap-min), 1fr)); gap: 8px; }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 main { max-width: 720px; margin: 0 auto; padding: 16px; }
+.stack { display: flex; flex-direction: column; gap: 16px; }
+.stack label { display: flex; flex-direction: column; gap: 4px; }
+.top-bar { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 8px 16px; border-bottom: 1px solid #ccc; }
+.banner { padding: 12px 16px; background: #fff4cc; border: 1px solid #c9a800; }

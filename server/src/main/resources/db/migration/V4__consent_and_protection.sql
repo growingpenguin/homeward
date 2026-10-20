@@ -122,6 +122,9 @@ CREATE TRIGGER persons_recheck_minor
 CREATE FUNCTION safety_flags_block_reveals() RETURNS trigger
 LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
 BEGIN
+    IF NEW.cleared_at IS NOT NULL THEN
+        RETURN NEW;                                   -- entered already lifted: not an active flag (same as the guard)
+    END IF;
     UPDATE contact_requests cr
     SET state = 'blocked', decided_at = now()
     WHERE cr.state IN ('connected', 'safe_only')
@@ -140,4 +143,10 @@ CREATE TRIGGER safety_flags_block_reveals
 -- The child check trusts staff.role, so the app must not be able to make anyone a lead:
 -- staff accounts are created and changed by the owner only (seed / admin), never by the app.
 REVOKE INSERT, UPDATE ON staff FROM homeward_app;
-GRANT SELECT, INSERT, UPDATE ON contact_requests TO homeward_app;
+-- Requests: make them and record decisions; never rewrite their id or when they were made.
+GRANT SELECT, INSERT ON contact_requests TO homeward_app;
+GRANT UPDATE (state, contact_plan, approved_by, guardian_checked, note, decided_at) ON contact_requests TO homeward_app;
+
+-- Trigger functions run without this right; revoking it stops the app attaching them to a table of its own.
+REVOKE EXECUTE ON FUNCTION contact_requests_guard(), searches_keep_searcher(), persons_recheck_minor(),
+                           safety_flags_block_reveals() FROM PUBLIC;

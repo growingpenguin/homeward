@@ -43,6 +43,9 @@ SELECT expect_fail($$INSERT INTO contact_requests (search_id, person_id, state, 
 SELECT expect_fail($$UPDATE contact_requests SET person_id = '00000000-0000-0000-0000-000000000507' WHERE person_id = '00000000-0000-0000-0000-000000000503'$$, 'move a connected request to another person');
 SELECT expect_fail($$UPDATE contact_requests SET search_id = '00000000-0000-0000-0000-0000000005c2' WHERE person_id = '00000000-0000-0000-0000-000000000503'$$, 'move a connected request to another search');
 SELECT expect_fail($$DELETE FROM contact_requests$$, 'app deletes contact requests');
+SELECT expect_fail($$UPDATE contact_requests SET created_at = '2020-01-01' WHERE person_id = '00000000-0000-0000-0000-000000000503'$$, 'app backdates a request');
+CREATE TEMP TABLE fake_requests (person_id uuid, search_id uuid);
+SELECT expect_fail($$CREATE TRIGGER t AFTER INSERT ON pg_temp.fake_requests FOR EACH ROW EXECUTE FUNCTION public.safety_flags_block_reveals()$$, 'attach the blocking trigger function to a table of its own');
 
 -- P3. Safety flags beat everything, including "findable" and an earlier "Connect"
 INSERT INTO contact_requests (search_id, person_id) VALUES ('00000000-0000-0000-0000-0000000005c2', '00000000-0000-0000-0000-000000000502');

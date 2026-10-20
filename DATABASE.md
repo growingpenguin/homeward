@@ -55,7 +55,7 @@ PostgreSQL is the only one that wins all three rows. MySQL is close on safety ru
 
 ## Requirements → SQL
 
-The constraints come first, then the SQL that enforces each one. The SQL below is copied from the complete tested draft `server/src/main/resources/db/draft/full_schema_draft.sql`, which is being split into the Flyway migrations `V1`–`V3` step by step (see `DATABASE_PLAN.md`). It passes all checks on PostgreSQL 18.6, the same version as Neon; each rule was tested by trying to break it (see **Tests**).
+The constraints come first, then the SQL that enforces each one. The SQL below is copied from the Flyway migrations `V1`–`V4` in `server/src/main/resources/db/migration/`, which were split from the complete tested draft `db/draft/full_schema_draft.sql` step by step (see `DATABASE_PLAN.md`; the few fixes made since are listed in `DATABASE_IMPLEMENTATION.md`). It passes all checks on PostgreSQL 18.6, the same version as Neon; each rule was tested by trying to break it (see **Tests**).
 
 | # | Constraint (from the scenario) | Enforced by |
 | --- | --- | --- |
@@ -464,7 +464,7 @@ GRANT INSERT (staff_id, action, target) ON audit_log TO homeward_app;
 - **Accents are removed** before matching (`unaccent`), so "jose perez" finds "José Pérez" while the name is still shown with its accents.
 - **Nicknames** come from a small table (Bill ↔ William, Liz ↔ Elizabeth, Pepe ↔ José…), in both directions.
 - **Age** counts as close if it's within 5 years of the range, because ages are often guesses; a range with only a minimum or only a maximum works too. Unknown age is "no signal", not "no match".
-- `find_candidates` returns **signals** for up to 100 people. Before the cut it uses a rough order that adds up spelling, sound and nickname, so a strong sound or nickname match isn't dropped for a weaker spelling match. `MatchingService` does the real ranking, writes plain-English reasons, and a person decides.
+- `find_candidates` returns **signals** for up to 100 people. Before the cut it uses a rough order that adds up spelling, sound, nickname and age, so a strong sound or nickname match isn't dropped for a weaker spelling match, and among 100+ people with the same name the one of the right age isn't cut off. `MatchingService` does the real ranking, writes plain-English reasons, and a person decides.
 
 ```sql
 -- Keep the matching columns up to date on EVERY insert and update, so they can't be edited by hand:
@@ -520,8 +520,12 @@ LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
            OR c.name_words  && ARRAY(SELECT w FROM expanded)            -- or a nickname / exact word
     ) s
     -- A rough order using ALL signals before the cut, so a strong sound or nickname match
-    -- isn't dropped for a weaker spelling match. MatchingService does the real ranking.
-    ORDER BY s.sim + 0.3 * s.sounds + CASE WHEN s.nick THEN 0.5 ELSE 0 END DESC, s.pid
+    -- isn't dropped for a weaker spelling match, and the right age counts too: with 100+ people
+    -- of the same name, the one of the right age must not be cut off. A small bonus only, no
+    -- penalty: ages are often guesses, so a wrong guess must not push out the right name.
+    -- MatchingService does the real ranking.
+    ORDER BY s.sim + 0.3 * s.sounds + CASE WHEN s.nick THEN 0.5 ELSE 0 END
+             + CASE WHEN s.age_ok THEN 0.3 ELSE 0 END DESC, s.pid
     LIMIT 100
 $$;
 ```

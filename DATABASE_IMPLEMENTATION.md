@@ -222,7 +222,35 @@ Result after fixes: `02_seed.sql: 5 passed`, `03_registration.sql: 18 passed`, `
 
 ## Step 4. Safe matching (`V3__safe_matching.sql`)
 
-_Not started._
+**Branch:** `feature/db-matching` · planned in plan mode together with step 5, B4–B5 and F3–F4 (approved 2026-10-20).
+
+**Done:**
+- `V3__safe_matching.sql` cut from the draft (sections copied verbatim, by line range): `safety_flags` (+ lock trigger, no-reactivate), `search_candidates` view, `nicknames`, `match_candidates`, `find_candidates`, grants.
+- **Fix 1 (setup review, Codex P2): age counts before the 100-candidate cut.** The rough order now adds `+0.5` when the age fits and `−0.5` when it doesn't (unknown age = no change). DATABASE.md's excerpt and text updated; a script checked every quoted line still exists in V3.
+- **Fix 2 (step 3 review, deferred): a handed-out slip stays with its person.** Trigger `reunion_codes_keep_person`: once `person_id` is set it can't change (to someone else or back to blank); a pre-printed slip can still be handed out once.
+- Demo seed: **200 fictional people** (made-up first + last name combinations; accents, lower case, nicknames, every 9th age unknown, all three privacy choices, mostly "ask"; spread over the 3 shelters), fixed ids, `DO NOTHING` so demo registrations are never overwritten.
+
+**Tests:** `scripts/db-test.sh` → **all passed**; new `04_matching.sql` **27 passed** (as `homeward_app`): misspelling, no accents, sound-alike, nickname · age signal only when both sides know one · hidden adult, hidden child, `do_not_disclose` (even when findable) and departed people never found · the view has no location columns, `find_candidates` returns only 6 signal columns · crowded name · flags: lift allowed, re-activate / rewrite / delete / "about nobody" refused, lifted flag makes the person findable again · same match twice and score > 1 refused · slip can't move. `02_seed.sql` now 7 (200 people, stored once after two runs, spread as described).
+
+**Test problem found and fixed:** the crowded-name test first passed **even with the old ordering**, because the 80-year-old's test id `00000000-…409` sorts before every random id, so the id tie-break brought her in anyway. Her id now sorts last (`ffffffff-…`); with the old ordering the test fails (`FAIL: crowded name: Maria Garcia aged 80 comes back first for 75-85`), with the fix it passes. Checked both ways before committing.
+
+**Review** (`/code-review`; each finding checked against the SQL, refusal messages read to make sure each test is refused for the right reason):
+
+| # | Finding | Result |
+|---|---|---|
+| 1 | Checks of the form `SELECT assert_true(...) FROM f() WHERE id = …` print **nothing** (so pass) when the row is missing | **Fixed:** they read the row as a value, so a missing row prints `FAIL` |
+| 2 | A handed-out slip could still be rewired by changing its **code or PIN** instead of `person_id` | **Fixed:** person, code and PIN are fixed once handed out (failed tries, lock and voiding still change); tests |
+| 3 | The app could update every column of `match_candidates` and suggest a hidden or protected person directly | **Fixed:** `UPDATE (decision, reviewed_by)` only; a trigger refuses suggesting anyone not in `search_candidates`; tests |
+| 4 | ±0.5 for the age outweighed a full name match, so a wrong age guess could push the right name out | **Fixed:** +0.3 when the age fits, no penalty; crowded-name test still passes |
+| 5 | The draft no longer matches the migrations, though DATABASE.md said its SQL came from the draft | **Fixed:** draft marked "reference only"; DATABASE.md now points at the migrations |
+| 6 | The security-barrier view may stop PostgreSQL using the name indexes (full scan per search) | **Measured on Neon** (below); fine at demo scale, noted for 400k |
+| 7 | `safety_flags_no_reactivate` is in V3, the plan put it in V4; its comment mentioned V4's trigger | **Kept in V3** (it belongs with the flags table, so flags are safe from the first moment); comment corrected |
+| 8 | "No location" test was a denylist of 8 names | **Fixed:** the view's columns must equal an exact allowed list |
+| 9 | No test for the `minor` output, a moved person, or a custody-hold child | **Fixed:** unknown age → child, 40 → adult, moved person found, custody-hold child still matchable for the lead |
+| 10 | Seed header promised re-runs update rows; the 200 people are only added once | **Fixed** (seed and `db-seed.sh` comments) |
+| (V4 #10) | Trigger functions executable by PUBLIC: the app could attach them to its own table | **Fixed for V3's functions** (`REVOKE EXECUTE … FROM PUBLIC`); test |
+
+**After the fixes:** `04_matching.sql` **39 passed**; `scripts/db-test.sh` all passed.
 
 ## Step 5. Consent and protection (`V4__consent_and_protection.sql`)
 

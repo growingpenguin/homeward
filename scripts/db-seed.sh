@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Applies the FICTIONAL demo seed (db/seed/demo_seed.sql) to Neon, as the owner, through the
-# direct connection in .env.local. Re-runnable: a second run updates rows to match the file.
+# direct connection in .env.local. Re-runnable: shelters and staff are updated to match the file; seeded people are only added once.
 # The connection string goes to psql through an environment variable and is never printed.
 set -euo pipefail
 cd "$(dirname "$0")/.."

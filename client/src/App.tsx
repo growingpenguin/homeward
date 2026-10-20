@@ -27,8 +27,13 @@ function Session() {
   // Logged out (by the server, or by pressing Log out): forget everything loaded, show the login.
   useEffect(() => {
     const loggedOut = () => {
-      void qc.cancelQueries();
-      qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
+      // Already logged out: a late 401 (e.g. the "still here" call sent by the click on Log out itself)
+      // must not run this again, or it would cancel the login page's own shelter list while it loads.
+      if (qc.getQueryData(["me"]) === null) return;
+      // Everything about people goes; the shelter list (public, used by the login page) stays.
+      const personal = (q: { queryKey: readonly unknown[] }) => q.queryKey[0] !== "me" && q.queryKey[0] !== "shelters";
+      void qc.cancelQueries({ predicate: personal });
+      qc.removeQueries({ predicate: personal });
       qc.getMutationCache().clear();   // unsent saves must not go out later under someone else's login
       clearAllDrafts();                // no survivor's details left on a shared laptop
       qc.setQueryData(["me"], null);

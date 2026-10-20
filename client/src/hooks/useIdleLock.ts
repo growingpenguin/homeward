@@ -11,8 +11,13 @@ import { authEvents } from "../api/client";
 const IDLE_MS = 10 * 60 * 1000;
 const TELL_SERVER_MS = 60 * 1000;
 
-export function useIdleLock(verifyPin: (pin: string) => Promise<boolean>, stillHere: () => Promise<unknown>) {
-  const [locked, setLocked] = useState(false);
+export function useIdleLock(
+  verifyPin: (pin: string) => Promise<boolean>,
+  stillHere: () => Promise<unknown>,
+  startLocked = false,   // the server already said "locked" (e.g. after a reload)
+) {
+  const [locked, setLocked] = useState(startLocked);
+  const lockedNow = useRef(startLocked);
   const queryClient = useQueryClient();
   const lastActivity = useRef(0);
   const lastTold = useRef(0);
@@ -22,11 +27,14 @@ export function useIdleLock(verifyPin: (pin: string) => Promise<boolean>, stillH
     const expired = () => Date.now() - lastActivity.current >= IDLE_MS;
     const lock = () => {
       void queryClient.cancelQueries();   // stop anything still loading
-      queryClient.removeQueries();        // forget every person loaded so far (saves waiting for the internet are kept)
+      // Forget every person loaded so far; keep who is logged in, and saves waiting for the internet.
+      queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
+      lockedNow.current = true;
       setLocked(true);
     };
     // Activity after the deadline doesn't buy more time: it locks.
     const onActivity = () => {
+      if (lockedNow.current) return;     // typing the PIN on the lock screen isn't activity
       if (expired()) return lock();
       const now = Date.now();
       lastActivity.current = now;
@@ -36,8 +44,8 @@ export function useIdleLock(verifyPin: (pin: string) => Promise<boolean>, stillH
       }
     };
     // Timers pause when a laptop sleeps, so also check the clock on wake-up and every 15 s.
-    const onVisible = () => document.visibilityState === "visible" && expired() && lock();
-    const tick = window.setInterval(() => expired() && lock(), 15_000);
+    const onVisible = () => !lockedNow.current && document.visibilityState === "visible" && expired() && lock();
+    const tick = window.setInterval(() => !lockedNow.current && expired() && lock(), 15_000);
 
     const events = ["pointerdown", "keydown"] as const;
     events.forEach((e) => window.addEventListener(e, onActivity));
@@ -55,6 +63,7 @@ export function useIdleLock(verifyPin: (pin: string) => Promise<boolean>, stillH
   const unlock = async (pin: string) => {
     if (!(await verifyPin(pin))) return false;
     lastActivity.current = Date.now();
+    lockedNow.current = false;
     setLocked(false);
     return true;
   };

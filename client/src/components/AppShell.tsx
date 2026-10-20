@@ -38,10 +38,11 @@ function LockScreen({ onUnlock }: { onUnlock: (pin: string) => Promise<boolean> 
 type ShellProps = {
   verifyPin: (pin: string) => Promise<boolean>;
   stillHere: () => Promise<unknown>;
+  startLocked?: boolean;
   children: ReactNode;
 };
 
-export function AppShell({ verifyPin, stillHere, children }: ShellProps) {
-  const { locked, unlock } = useIdleLock(verifyPin, stillHere);
+export function AppShell({ verifyPin, stillHere, startLocked, children }: ShellProps) {
+  const { locked, unlock } = useIdleLock(verifyPin, stillHere, startLocked);
   return locked ? <LockScreen onUnlock={unlock} /> : <>{children}</>;
 }

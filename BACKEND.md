@@ -351,7 +351,7 @@ class PersonRepo(private val jdbc: JdbcClient) {
 
 - **`SecurityConfig`** sets up login and decides who can do what. I use Spring Security here instead of writing my own login code, because that's the easiest place to make a dangerous mistake.
 - There are three roles: volunteer, lead and coordinator. Lead-only pages and actions are blocked for regular volunteers.
-- A login lasts a whole shift (12 hours), so tired volunteers don't keep getting kicked out.
+- A login lasts a whole shift (12 hours), so tired volunteers don't keep getting kicked out. Sessions live in memory for the MVP: when the free Render server sleeps, volunteers log in again (close to the 10-minute idle lock anyway).
 - But if there are no clicks or typing for 10 minutes, it asks for the PIN again, because laptops get left on desks. Background refreshes don't count as activity.
 - Even the code + PIN lookup needs a volunteer to be logged in, so every lookup is tied to a real person at a real desk.
 - Only the name is required on forms, and error messages are plain sentences, so a volunteer at 2 a.m. never gets stuck on a form.
@@ -417,9 +417,9 @@ class AuditService(private val jdbc: JdbcClient) {
 
 Matching is hand-written SQL (`similarity()`, `dmetaphone()`). Spring JDBC keeps it visible and reviewable, with parameterized queries only. JPA would hide that SQL, and lazy loading could pull in data (like a shelter) I didn't mean to load and send.
 
-**Versions:** Spring Boot 4.x / Spring Security 7 (needed for the one-line `csrf { it.spa() }`; `JdbcClient` needs 3.2+) with Kotlin 2.2+ and the `kotlin("plugin.spring")` plugin, so Spring can wrap Kotlin's final classes for `@Transactional` and `@PreAuthorize`.
+**Versions:** Spring Boot 4.1.1 / Spring Security 7 (needed for the one-line `csrf { it.spa() }`; `JdbcClient` needs 3.2+), Kotlin 2.3.21, JDK 21, and the `kotlin("plugin.spring")` plugin, so Spring can wrap Kotlin's final classes for `@Transactional` and `@PreAuthorize`.
 
-**Migrations:** Flyway runs the migrations in `db/migration/` (`V1__base_tables.sql`, then `V2`/`V3`) on startup. Schema changes are new files; applied migrations are never edited.
+**Migrations:** the running app **never** migrates and never holds the owner's password. Migrations (`V1__base_tables.sql`, `V2__login_and_schema_version.sql`, then `V3`/`V4`) run only through `scripts/db-migrate.sh`, as the owner. At startup, the app reads the schema version (as `homeward_app`) and refuses to start if the database is older than the code. Schema changes are new files; applied migrations are never edited.
 
 ---
 

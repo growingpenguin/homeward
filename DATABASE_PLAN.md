@@ -29,7 +29,7 @@ Manual mode still applies: every command that changes something is shown first a
 ## Files
 
 - **New:** `DATABASE_PLAN.md` (this plan, approved), `DATABASE_IMPLEMENTATION.md` (log filled in after each step: what was done, commands, test output, changes from plan), `.gitignore`, `.env.example`.
-- **Migrations** (replace `V1__init.sql`): `V1__base_tables.sql`, `V2__safe_matching.sql`, `V3__consent_and_protection.sql` in `server/src/main/resources/db/migration/`.
+- **Migrations** (replace `V1__init.sql`): `V1__base_tables.sql`, `V3__safe_matching.sql`, `V4__consent_and_protection.sql` (V2 was taken by the backend plan's `V2__login_and_schema_version.sql`) in `server/src/main/resources/db/migration/`.
 - **Tests:** `server/src/test/resources/db/` SQL test files (one per step, from the existing 42 checks) + `scripts/db-test.sh` (runs them in a throwaway Docker Postgres). The backend plan later reuses these files from JUnit + Testcontainers.
 - **Seed:** `server/src/main/resources/db/seed/demo_seed.sql` (fictional only, never in a migration).
 - **Synced:** DATABASE.md (file names, test list), CLAUDE.md (schema path), AI_NOTES.md (one entry per session).
@@ -39,8 +39,8 @@ Manual mode still applies: every command that changes something is shown first a
 | File | Step | Contents (moved unchanged from today's V1) |
 | --- | --- | --- |
 | `V1__base_tables.sql` | 2 | extensions, `has_text` / `all_have_text`, `shelters`, `staff`, `persons` (+ `treated_as_minor`, name trigger, indexes), `person_history` (+ trigger, REVOKE), `reunion_codes`, `searches`, `audit_log`, the two DB users and their grants for these tables |
-| `V2__safe_matching.sql` | 4 | `safety_flags` (+ lock trigger), `search_candidates` view, `nicknames`, `find_candidates`, `match_candidates`, grants |
-| `V3__consent_and_protection.sql` | 5 | `contact_requests` (+ guard), flag-blocks-reveals, no-reactivate, `searches_keep_searcher`, `persons_recheck_minor`, grants |
+| `V3__safe_matching.sql` | 4 | `safety_flags` (+ lock trigger), `search_candidates` view, `nicknames`, `find_candidates`, `match_candidates`, grants |
+| `V4__consent_and_protection.sql` | 5 | `contact_requests` (+ guard), flag-blocks-reveals, no-reactivate, `searches_keep_searcher`, `persons_recheck_minor`, grants |
 
 Each file grants its own permissions, so the app user works after every step. Proof that nothing changed: after V1→V3, all 42 existing checks must pass, and a schema dump must match today's single file (compared table by table, function by function).
 
@@ -69,12 +69,12 @@ Every step: `feature/database-<step>` branch off develop → small commits → `
 - Small fictional seed: 3 shelters, staff with BCrypt PINs.
 - Then: **plan mode for the backend + frontend registration slice** (separate plans).
 
-### Step 4. Safe matching (`V2__safe_matching.sql`)
+### Step 4. Safe matching (`V3__safe_matching.sql`)
 - Test `04_matching.sql`: misspellings, sound-alike, nicknames, accents, one-sided ages, hidden adult and hidden child never found, view has no location, ranking.
 - **Fix found in the setup review (Codex P2):** the 100-candidate cut in `find_candidates` currently ignores age, so with more than 100 near-identical names the only right-aged person could be dropped. Add the age signal to the ordering **before** the cut (unknown age = neutral), and a crowded-name test: 120 people named "Maria Garcia", only one aged 80, who must come back first for an age range of 75–85. Update DATABASE.md's excerpt to match.
 - Seed grows to ~200 fictional people with messy names; time `find_candidates` on Neon (closes the "scale" open item).
 
-### Step 5. Consent and protection (`V3__consent_and_protection.sql`)
+### Step 5. Consent and protection (`V4__consent_and_protection.sql`)
 - Test `05_protection.sql`: child rules (found and searching), flags (incl. after "Connect"), request can't move, searcher can't be swapped, age correction re-check, temp-table and fake-history attacks, audit append-only.
 
 ### Step 6. Full reunion test (database side)

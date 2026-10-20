@@ -82,7 +82,6 @@ export const t = {
     sayInstead: "We'll ask, and let you know.",
     about: (age: number) => `about ${age}`,
     reasons: "Why this might be them:",
-    child: "A child: a lead decides before anything is shared.",
     choose: "Ask this person",
     requested: "Asked",
     message: "A message for them (optional)",

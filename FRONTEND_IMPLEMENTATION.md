@@ -195,3 +195,18 @@ Westfield (Casey): son's code + PIN → POST /api/lookup 200 → turn the screen
 - Home shows the lead page link to leads only.
 
 **Tests:** `npm run lint` 0 errors · `npm test` **23 passed** (2 new): the lead link only for leads · Release disabled until guardian check + note + plan, then sends exactly those; flags can be lifted · `npm run build` passed.
+
+**Real run, after the F3 fixes** (backend against Neon + `npm run dev`, Playwright, fictional people) — the child path, and the PIN fix confirmed in the browser:
+```
+Eastside (Riley):  "Pilar Montoya…", 9, no adult with her                            → saved
+Lincoln (Alex):    father "Ramon Montoya…" (adult) searches 7–11
+                   card: "Pilar Montoya… (about 9) | … | age fits (about 9) | a child: a lead decides before anything is shared"
+                   request → 201, father's slip printed
+Eastside (Riley):  Answers waiting: "Ramon … is looking for Pilar …" | "A child is involved, so a lead decides." — 0 buttons
+Westfield (Casey): father's code + PIN → POST /api/lookup 200 → "Your request is saved. …" → POST /api/lookup/end 204
+Eastside (Lead Morgan): Lead page → guardian checked + note + "Her father comes to the Eastside desk at 3 p.m."
+                   → POST /api/lead/requests/:id/release-minor 204
+Westfield (Casey): father's slip again → "They want to connect. Here's how: | Her father comes to the Eastside desk at 3 p.m."
+                   (the app behind the searcher's screen: inert = true)
+```
+The run showed "a lead decides" twice on the card (a backend reason and a frontend line); the frontend line was removed.

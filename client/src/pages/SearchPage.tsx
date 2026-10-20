@@ -191,7 +191,6 @@ function MatchCardView({ searchId, card, onSent }: { searchId: string; card: Mat
       <h3>{card.preferredName}{card.approxAge !== null ? ` (${t.search.about(card.approxAge)})` : ""}</h3>
       <p>{t.search.reasons}</p>
       <ul>{card.reasons.map((r) => <li key={r}>{r}</li>)}</ul>
-      {card.child && <p><strong>{t.search.child}</strong></p>}
       {card.requested || send.isSuccess ? (
         <p role="status">{t.search.requested}</p>
       ) : open ? (

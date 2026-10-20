@@ -11,6 +11,9 @@ spring:
     password: ${DB_PASSWORD}
     hikari:
       maximum-pool-size: 5         # small: free tiers, one instance
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true   # an unexpected field (e.g. "ssn") is refused, never silently dropped
   flyway:
     enabled: false                 # migrations run only through scripts/db-migrate.sh, as the owner
 
@@ -25,3 +28,7 @@ server:
         http-only: true
         same-site: lax
         secure: ${COOKIE_SECURE:false}   # true on Render (HTTPS)
+
+springdoc:
+  api-docs:
+    path: /api/openapi.json        # read by the frontend's type generator

@@ -9,6 +9,7 @@ import org.springframework.http.MediaType
 import org.springframework.mock.web.MockHttpSession
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf
+import org.springframework.test.annotation.DirtiesContext
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
@@ -174,7 +175,10 @@ class AuthTest : IntegrationTest() {
 }
 
 // The real browser flow, without MockMvc's csrf() shortcut: GET /api/csrf, then send the cookie's value back.
+// Its own fresh context: spring-security-test's csrf() helper (used by the other tests) swaps the app's CSRF
+// token store for a test one inside a shared context, after which no request gets a real cookie.
 @AutoConfigureMockMvc
+@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_CLASS)
 class CsrfFlowTest : IntegrationTest() {
     @Autowired lateinit var mvc: MockMvc
 
@@ -189,7 +193,9 @@ class CsrfFlowTest : IntegrationTest() {
                 .andExpect { jsonPath("$.headerName") { value("X-XSRF-TOKEN") } }
                 .andReturn()
                 .response
-        val cookie = first.getCookie("XSRF-TOKEN")!! // !!: the endpoint exists to set it
+        val cookie =
+            first.getCookie("XSRF-TOKEN")
+                ?: error("no XSRF-TOKEN cookie; Set-Cookie headers: ${first.getHeaders("Set-Cookie")}, status ${first.status}")
         mvc
             .post("/api/login") {
                 cookie(cookie)

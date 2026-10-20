@@ -49,6 +49,22 @@ GET /api/persons  → HTTP 403
 - `HomewardApplication.kt` and the generated tests were reformatted by `ktlintFormat` (tabs → spaces, ktlint's default style).
 - The generated `TestcontainersConfiguration` / `TestHomewardApplication` (which used `postgres:latest` and connected as the owner) were replaced by `TestDatabase` + `IntegrationTest`.
 
+**Review (2026-10-20, ~11:00).** Codex was over its limit and the user set a 10:00 PM deadline, so (agreed with the user) B0 was reviewed with Claude Code's `/code-review`; Codex runs afterwards as a post-deadline check. Database step 3 was reviewed and merged first (PR #4), and `develop` was merged into this branch (clean). 9 findings:
+
+| Finding | Decision |
+| --- | --- |
+| `/error` was denied, so any failure (e.g. Neon down during a health check) became an empty 403 | **Fixed:** `/error` permitted |
+| `run-backend.sh`: `eval "$(python3 ...)"` hid a Python failure, so the app could start without (or with someone else's) DB settings | **Fixed:** assignment first, so `set -e` stops it |
+| `/api/health` queried the database on every call (keeps Neon awake, uses free hours) | **Fixed:** reports the version checked at startup |
+| `version::int` would crash on a dotted version (`V3_1`) | **Fixed:** only whole-number versions count (the project uses V1, V2, ... only) |
+| Demo seed loaded only "if present", by relative path | **Fixed:** now required, with a clear error; new test checks 6 demo staff and **no** coordinator |
+| V2's grant is skipped in plain `psql` runs, so `db-test.sh` doesn't test it | **Covered by the Gradle tests:** they apply migrations with Flyway, and the app reading the version at startup *is* the test |
+| Unique login name doesn't trim spaces | **Backend:** B2 trims the login name; V2 is already on Neon |
+| Unused validation starter | **Kept:** B3 uses it today |
+| Duplicated `.env.local` parser in two scripts | **After the deadline** |
+
+Result: `./gradlew build` → `BUILD SUCCESSFUL`, 6 tests, 0 failed; `scripts/db-test.sh` → all passed. Compile hiccup on the way: `private set` isn't allowed on an open property (the Spring plugin opens `@Component` classes), so the setter is public.
+
 ## B1. First deploy (skeleton)
 
 _Not started._

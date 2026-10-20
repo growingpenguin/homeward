@@ -7,7 +7,7 @@ import type { WaitingRequest } from "../api/types";
 import { BigButton } from "../components/BigButton";
 import { t } from "../strings";
 
-export function HomePage() {
+export function HomePage({ isLead = false }: { isLead?: boolean }) {
   const navigate = useNavigate();
   const waiting = useQuery({ queryKey: ["answers"], queryFn: () => api<WaitingRequest[]>("/api/answers") });
   const count = waiting.data?.length ?? 0;
@@ -19,6 +19,7 @@ export function HomePage() {
       <button type="button" onClick={() => navigate("/answers")}>
         {t.answers.title}{count > 0 ? ` (${count})` : ""}
       </button>
+      {isLead && <button type="button" onClick={() => navigate("/lead")}>{t.lead.open}</button>}
     </div>
   );
 }

@@ -8,7 +8,7 @@ import type { PersonView, SlipResponse } from "../api/types";
 import { BigButton } from "../components/BigButton";
 import { t } from "../strings";
 
-export function SlipPage() {
+export function SlipPage({ isLead = false }: { isLead?: boolean }) {
   const { id } = useParams();
   const qc = useQueryClient();
   const person = useQuery({ queryKey: ["person", id], queryFn: () => api<PersonView>(`/api/persons/${id}`) });
@@ -18,20 +18,30 @@ export function SlipPage() {
     // Coming back to this screen must show "already has a slip", not the Print button again.
     onSuccess: () => qc.setQueryData<PersonView>(["person", id], (p) => p && { ...p, hasSlip: true }),
   });
+  // Lead only: a lost slip is voided and a new one printed (the new PIN is also shown only once).
+  const reprint = useMutation({
+    mutationFn: () => api<SlipResponse>(`/api/lead/persons/${id}/reissue-slip`, { method: "POST", userAction: true }),
+    gcTime: 0,
+  });
+  const protect = useMutation({
+    mutationFn: () => api<unknown>("/api/lead/flags", { method: "POST", body: { personId: id, kind: "do_not_disclose" }, userAction: true }),
+  });
+  const printed = slip.data ?? reprint.data;
 
   if (!person.data) return person.isError ? <p role="alert">{person.error.message}</p> : null;
-  const problem = slip.error && (slip.error instanceof HttpError && slip.error.status < 500 ? slip.error.message : t.problem.noConnection);
+  const failed = slip.error ?? reprint.error ?? protect.error;
+  const problem = failed && (failed instanceof HttpError && failed.status < 500 ? failed.message : t.problem.noConnection);
 
   return (
     <div className="stack">
       <h2 className="no-print">{t.slip.saved(person.data.preferredName)}</h2>
-      {slip.data ? (
+      {printed ? (
         <>
           <div className="slip">
-            <p><strong>{slip.data.shelterName}</strong></p>
-            <p>{t.slip.code}: <span className="slip-code">{slip.data.code}</span></p>
-            {slip.data.pin && <p>{t.slip.pin}: <span className="slip-code">{slip.data.pin}</span></p>}
-            {slip.data.deskPhone && <p>{t.slip.desk}: {slip.data.deskPhone}</p>}
+            <p><strong>{printed.shelterName}</strong></p>
+            <p>{t.slip.code}: <span className="slip-code">{printed.code}</span></p>
+            {printed.pin && <p>{t.slip.pin}: <span className="slip-code">{printed.pin}</span></p>}
+            {printed.deskPhone && <p>{t.slip.desk}: {printed.deskPhone}</p>}
             <p>{t.slip.keep}</p>
           </div>
           <p className="no-print" role="status">{t.slip.pinOnce}</p>
@@ -43,6 +53,14 @@ export function SlipPage() {
         <BigButton label={t.slip.print} onClick={() => slip.mutate()} disabled={slip.isPending} />
       )}
       {problem && <p role="alert" className="problem">{problem}</p>}
+      {isLead && !printed && (
+        <div className="stack no-print">
+          {person.data.hasSlip && <button type="button" onClick={() => reprint.mutate()} disabled={reprint.isPending}>{t.lead.reprint}</button>}
+          {protect.isSuccess ? <p role="status">{t.lead.protected}</p> : (
+            <button type="button" onClick={() => protect.mutate()} disabled={protect.isPending}>{t.lead.protect}</button>
+          )}
+        </div>
+      )}
       <nav className="stack no-print">
         <Link to={`/persons/${id}/edit`}>{t.slip.edit}</Link>
         <Link to="/register">{t.slip.next}</Link>

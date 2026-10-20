@@ -199,6 +199,20 @@ RESULT: FAILED
 
 **Next:** plan mode for the **backend + frontend registration slice** (`BACKEND_PLAN.md`, `FRONTEND_PLAN.md`), as DATABASE_PLAN.md says.
 
+**Review (2026-10-20, 10:50).** Codex was over its usage limit until 04:31 the next morning, and the user set a **10:00 PM deadline**, so with the user's agreement this step was reviewed with Claude Code's `/code-review` instead (Codex runs later as a post-deadline check). 10 findings, triaged against the deadline:
+
+| Finding | Decision |
+| --- | --- |
+| The seed's public PIN would open a **coordinator** account on the live site | **Fixed:** no coordinator in the demo seed (6 staff: 3 volunteers, 3 leads); `02_seed.sql` asserts there's none |
+| Seed `ON CONFLICT DO NOTHING` silently skips later changes (e.g. a rotated PIN hash) | **Fixed:** `DO UPDATE`; the hash is defined once (CTE) instead of 7 copies |
+| A handed-out slip can be moved to another person (app has UPDATE on `reunion_codes`; R7 only tested its own WHERE clause) | **Deferred to V3** (today's matching slice): a trigger that refuses to change `person_id` once set, with a test |
+| `person_history.changed_by` can credit the previous editor if `updated_by` isn't set | **Backend:** B3 always sets `updated_by` from the login on every edit |
+| Test registers people at a shelter other than the volunteer's | **Backend:** B3 takes the shelter from the login, never from the request |
+| `expect_fail` accepts any error, not the expected one | **After the deadline:** check SQLSTATE |
+| `02_seed` BCrypt check repeated the CHECK constraint; no AI_NOTES entry; README missing | Replaced with a "one shared hash" check; AI_NOTES and README come at the end of today |
+
+Result after fixes: `02_seed.sql: 5 passed`, `03_registration.sql: 18 passed`, `RESULT: all passed`.
+
 ## Step 4. Safe matching (`V2__safe_matching.sql`)
 
 _Not started._

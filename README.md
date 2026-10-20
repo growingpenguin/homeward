@@ -71,7 +71,7 @@ The challenge covers the whole reunification problem. I built **one complete loo
 
 ## Design
 
-**Users:** the main user is a **tired volunteer at 2 a.m.**, on a laptop or tablet, often on bad Wi-Fi. The survivor never logs in. They talk to the volunteer, and for a moment they see a screen turned towards them. Leads handle children, flags and lost slips.
+**Users:** the main user is a **tired volunteer at 2 a.m.**, on a laptop or tablet, often on bad Wi-Fi. The survivor never logs in. They talk to the volunteer, and for a moment they see a screen turned towards them. Leads handle children, flags and lost slips (a lead reprints a slip from the person's slip page).
 
 **Usability choices** (details in [`FRONTEND.md`](FRONTEND.md)):
 - **Three big buttons** on Home, **one question per screen**, "Step 2 of 5", and plain words in one file (`strings.ts`).

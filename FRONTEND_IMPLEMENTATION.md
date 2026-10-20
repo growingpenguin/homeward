@@ -21,7 +21,7 @@ How each step of `FRONTEND_PLAN.md` was actually built: what was done, commands,
 - **Vitest 5**, not 3: Vitest 3 doesn't accept Vite 8 (the earlier ERESOLVE).
 - **Lint is oxlint + `tsc`** (the template's linter), not ESLint.
 - **Port 8080 on this Mac is shared with an SSH tunnel** (IPv4), so `localhost:8080` can reach the tunnel instead of the backend. Generated with `API_URL='http://[::1]:8080' npm run gen:api`; for dev, `API_TARGET='http://[::1]:8080' npm run dev`.
-- `netlify.toml` uses `homeward-api.onrender.com` (the service name in `render.yaml`); to confirm once the Render service is live.
+- `netlify.toml` uses `homeward-api-fjrc.onrender.com` (the live service URL; Render added a suffix to the name in `render.yaml`).
 
 **Tests:**
 ```

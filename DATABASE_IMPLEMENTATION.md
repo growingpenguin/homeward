@@ -155,7 +155,7 @@ The count went from 43 to 73 because every result is now asserted (and counted) 
 No new migration: registration only uses the V1 tables. This step proves they work **the way the backend will use them**, logged in as the least-privilege `homeward_app` user.
 
 **Done**
-- `db/seed/demo_seed.sql`: **fictional** demo data from the PROPOSAL.md demo script: 3 shelters (Lincoln High Shelter, Eastside Community Center, Westfield High Gym) and 7 staff (3 volunteers, 3 leads, 1 coordinator). Demo PIN **2468** for every account (public on purpose, for the README), stored only as a BCrypt hash (`htpasswd -bnBC 10`, format `$2y$10$`, checked against the database's BCrypt rule). Re-runnable (`ON CONFLICT DO NOTHING`); not a migration, so Flyway never reads it.
+- `db/seed/demo_seed.sql`: **fictional** demo data from the PROPOSAL.md demo script: 3 shelters (Lincoln High Shelter, Eastside Community Center, Westfield High Gym) and 7 staff (3 volunteers, 3 leads, 1 coordinator; later reduced to 6, with no coordinator account, and the seed re-runs with `ON CONFLICT ... DO UPDATE` for shelters and staff). Demo PIN **2468** for every account (public on purpose, for the README), stored only as a BCrypt hash (`htpasswd -bnBC 10`, format `$2y$10$`, checked against the database's BCrypt rule). Re-runnable (`ON CONFLICT DO NOTHING`); not a migration, so Flyway never reads it.
 - `scripts/db-test.sh` now applies the seed **twice** after the migrations (proves it's re-runnable and valid against every CHECK).
 - `00_helpers.sql`: added `assert_true(condition, label)`, so every step test asserts.
 - `02_seed.sql` (5 checks): 3 shelters and 7 staff stored once, the right roles, every PIN a BCrypt hash, no people.

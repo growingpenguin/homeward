@@ -55,7 +55,7 @@ PostgreSQL is the only one that wins all three rows. MySQL is close on safety ru
 
 ## Requirements → SQL
 
-The constraints come first, then the SQL that enforces each one. The SQL below is copied from the complete tested draft `server/src/main/resources/db/draft/full_schema_draft.sql`, which is being split into the Flyway migrations `V1`–`V3` step by step (see `DATABASE_PLAN.md`). It passes all checks on PostgreSQL 18.6, the same version as Neon; each rule was tested by trying to break it (see **Tests**).
+The constraints come first, then the SQL that enforces each one. The SQL below is copied from the Flyway migrations `V1`–`V4` in `server/src/main/resources/db/migration/`, which were split from the complete tested draft `db/draft/full_schema_draft.sql` step by step (see `DATABASE_PLAN.md`; the few fixes made since are listed in `DATABASE_IMPLEMENTATION.md`). It passes all checks on PostgreSQL 18.6, the same version as Neon; each rule was tested by trying to break it (see **Tests**).
 
 | # | Constraint (from the scenario) | Enforced by |
 | --- | --- | --- |

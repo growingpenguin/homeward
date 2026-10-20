@@ -109,3 +109,21 @@ test("log out that didn't reach the server keeps the volunteer logged in and say
   expect(await screen.findByText(/Couldn't log out/)).toBeInTheDocument();
   expect(screen.getByText("Logged in as Volunteer Alex")).toBeInTheDocument();
 });
+
+test("a late 401 right after logging out doesn't leave the login page stuck without shelters", async () => {
+  let loggedIn = true;
+  fakeBackend({
+    "GET /api/me": () => (loggedIn ? { status: 200, body: alex } : { status: 401 }),
+    "GET /api/answers": { status: 200, body: [] },
+    "GET /api/shelters": { status: 200, body: [shelter], delayMs: 200 },   // still loading when the 401 lands
+    "POST /api/logout": () => ((loggedIn = false), { status: 204 }),
+  });
+  render(<App />);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Log out" }));
+  await screen.findByRole("heading", { name: "Log in" });
+  // The "still here" call sent by that same click comes back 401 while the shelters are loading.
+  await act(() => api("/api/me", { userAction: true }).catch(() => {}));
+  expect(await screen.findByRole("option", { name: shelter.name })).toBeInTheDocument();
+  expect(screen.queryByText(/Connecting/)).not.toBeInTheDocument();
+});

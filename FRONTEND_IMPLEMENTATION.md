@@ -225,3 +225,13 @@ The run showed "a lead decides" twice on the card (a backend reason and a fronte
 | 8 | No test that volunteers never see the lead actions | Test |
 
 **After the fixes:** `npm run lint` 0 errors · `npm test` **25 passed** · `npm run build` passed · backend `./gradlew build` **49 passed**.
+
+## Hotfix 0.3.3. Live: the login page stuck on "Connecting" after Log out
+
+**Found on the live site** (Netlify `hilarious-cassata-a51a3c.netlify.app` → Render), in a fresh browser context: after **Log out**, the login page showed "Connecting. Please wait…" forever with no shelters, though `GET /api/shelters` answered 200. Requests in order: `POST /api/logout 204` → `GET /api/me 401` → `GET /api/shelters 200`.
+
+**Cause:** the click on "Log out" also counts as activity, so `stillHere` (`GET /api/me` with the activity header) went out at the same time. It came back 401 after the logout, which fired "session ended" a **second** time; that second round cancelled and removed the login page's shelter query while it was loading, leaving the page watching a removed query. It never showed locally because the two calls didn't cross there.
+
+**Fix:** the handler does nothing when already logged out, and never cancels or removes the public shelter list.
+
+**Test:** the fake backend can now answer slowly (`delayMs`); the shelters are still loading when the late 401 lands. **Old handler → `FAIL`**, fixed → passes. `npm test` **26 passed**, `npm run lint` 0 errors.

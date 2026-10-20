@@ -11,6 +11,13 @@ EXCEPTION WHEN others THEN
 END $$;
 GRANT EXECUTE ON FUNCTION expect_fail(text, text) TO homeward_app, homeward_maint;
 
+-- assert_true(condition, label): 'ok, <label>' when true, 'FAIL: <label>' when false or NULL.
+-- Every step test asserts its results; nothing is print-only.
+CREATE FUNCTION assert_true(ok boolean, label text) RETURNS text LANGUAGE sql IMMUTABLE AS $$
+  SELECT CASE WHEN ok THEN 'ok, ' || label ELSE 'FAIL: ' || label END
+$$;
+GRANT EXECUTE ON FUNCTION assert_true(boolean, text) TO homeward_app, homeward_maint;
+
 -- Fictional shelters and staff (BCrypt hash of a throwaway PIN).
 INSERT INTO shelters (id, name) VALUES
   ('00000000-0000-0000-0000-0000000000a1', 'North High School'),

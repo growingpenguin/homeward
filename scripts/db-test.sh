@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs the database tests in a throwaway PostgreSQL container with the same version as Neon.
 #
-#   scripts/db-test.sh           apply db/migration/V*.sql in order, then run every step test
+#   scripts/db-test.sh           apply db/migration/V*.sql in order and the demo seed (twice), then run every step test
 #                                (server/src/test/resources/db/NN_*.sql) against them
 #   scripts/db-test.sh --draft   apply the full schema draft and run its 42 break-it checks
 #
@@ -57,6 +57,10 @@ if [ "${1:-}" = "--draft" ]; then
 else
   for f in $(ls "$MIGRATIONS"/V*__*.sql | sort -V); do
     run_sql "$f"; echo "applied: $(basename "$f")"
+  done
+  # The fictional demo seed must apply cleanly, and twice (it has to be re-runnable).
+  for f in $(ls server/src/main/resources/db/seed/*.sql 2>/dev/null); do
+    run_sql "$f"; run_sql "$f"; echo "seeded twice: $(basename "$f")"
   done
   for f in $(ls "$TESTS"/[0-9][0-9]_*.sql 2>/dev/null | sort); do
     run_test "$f"

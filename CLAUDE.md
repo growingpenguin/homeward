@@ -146,7 +146,11 @@ Run the backend tests + lint and the frontend lint + tests before every commit.
 Every code change gets a second opinion from a different model before it is merged, so one model's blind spots don't slip through.
 
 ```bash
-codex review --base develop "Check the privacy invariants in CLAUDE.md, matching correctness, and missing tests."
+# Review the whole branch against develop (codex review --base takes no custom instructions)
+codex review --base develop
+
+# A focused, read-only check with instructions (e.g. privacy invariants, matching, missing tests)
+codex exec -s read-only "Do NOT modify files. Check the privacy invariants in CLAUDE.md, matching correctness, and missing tests."
 ```
 
 - Verify each Codex finding against the code or a test before acting on it; don't apply suggestions blindly.

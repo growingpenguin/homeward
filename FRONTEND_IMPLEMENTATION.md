@@ -185,6 +185,43 @@ Westfield (Casey): son's code + PIN → POST /api/lookup 200 → turn the screen
 
 **After the fixes:** `npm run lint` 0 errors · `npm test` **21 passed**.
 
-## F4
+## F4. Lead page
 
-_Not started._
+**Branch:** `feature/frontend-lead` (on top of F3).
+
+**Done:**
+- **Lead page** (`/lead`, shown only when the login's role is lead or coordinator; the backend refuses `/api/lead/**` to anyone else): children waiting at this desk with the searcher's message, a guardian-check box, a note and how they'll meet; the Release button stays disabled until all three are there. Children without an adult here (link to their page). Active flags with *Lift this flag*.
+- **On a person's page, for leads:** *Protect this person: never share anything* (a `do_not_disclose` flag) and *Reprint a lost slip* (old code stops working, the new PIN shown once).
+- Home shows the lead page link to leads only.
+
+**Tests:** `npm run lint` 0 errors · `npm test` **23 passed** (2 new): the lead link only for leads · Release disabled until guardian check + note + plan, then sends exactly those; flags can be lifted · `npm run build` passed.
+
+**Real run, after the F3 fixes** (backend against Neon + `npm run dev`, Playwright, fictional people) — the child path, and the PIN fix confirmed in the browser:
+```
+Eastside (Riley):  "Pilar Montoya…", 9, no adult with her                            → saved
+Lincoln (Alex):    father "Ramon Montoya…" (adult) searches 7–11
+                   card: "Pilar Montoya… (about 9) | … | age fits (about 9) | a child: a lead decides before anything is shared"
+                   request → 201, father's slip printed
+Eastside (Riley):  Answers waiting: "Ramon … is looking for Pilar …" | "A child is involved, so a lead decides." — 0 buttons
+Westfield (Casey): father's code + PIN → POST /api/lookup 200 → "Your request is saved. …" → POST /api/lookup/end 204
+Eastside (Lead Morgan): Lead page → guardian checked + note + "Her father comes to the Eastside desk at 3 p.m."
+                   → POST /api/lead/requests/:id/release-minor 204
+Westfield (Casey): father's slip again → "They want to connect. Here's how: | Her father comes to the Eastside desk at 3 p.m."
+                   (the app behind the searcher's screen: inert = true)
+```
+The run showed "a lead decides" twice on the card (a backend reason and a frontend line); the frontend line was removed.
+
+**Review** (`/code-review`; each finding checked against the code and the backend):
+
+| # | Finding | Fix |
+|---|---|---|
+| 1 | When the **child is the one searching**, the release never asked whether the adult here agreed | Required box "The person here agreed, in person (if they are the adult being asked)"; test |
+| 2 | Releasing a child took one tap, without showing what will be shared | "Check what will be shared" shows the plan as it will be read, then "Yes, release"; nothing sent before; test |
+| 3 | "Lift this flag" in one tap | Asks first, naming the flag and the person; test |
+| 4 | "Reprint a lost slip" voided the old slip in one tap, without saying so | Says the old slip and PIN stop working and the new PIN is shown once; asks first; test |
+| 5 | "Protect" offered again on a later visit, adding duplicate flags | Asks first; the backend keeps one active flag per person and kind (pressing again is harmless); backend test |
+| 6 | After a release / lift, the Answers list stayed stale | Both refresh `answers` too |
+| 7 | A child whose found person is flagged was offered for release, then refused with "ask a lead" (to a lead) | Left off the lead's list (nothing about them can be released); backend test |
+| 8 | No test that volunteers never see the lead actions | Test |
+
+**After the fixes:** `npm run lint` 0 errors · `npm test` **25 passed** · `npm run build` passed · backend `./gradlew build` **49 passed**.

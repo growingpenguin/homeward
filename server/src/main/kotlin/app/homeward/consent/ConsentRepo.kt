@@ -209,7 +209,27 @@ class ConsentRepo(
 
     // ---------- lead page ----------
     // What this lead can release: requests with a child on either side, waiting at THIS desk (the found person's).
-    fun childrenWaiting(shelterId: UUID): List<WaitingRequest> = waiting(shelterId, null).filter { it.childInvolved }
+    // A found person under a flag is left out: nothing about them can be released, so the lead isn't asked to try.
+    fun childrenWaiting(shelterId: UUID): List<WaitingRequest> =
+        waiting(shelterId, null).filter { it.childInvolved && activeFlagOn(it.personId, null) == null }
+
+    // An active flag of this kind (or any kind, when null) on this person.
+    fun activeFlagOn(
+        personId: UUID,
+        kind: String?,
+    ): UUID? =
+        jdbc
+            .sql(
+                """
+                SELECT id FROM safety_flags
+                WHERE person_id = :p AND cleared_at IS NULL AND (CAST(:kind AS text) IS NULL OR kind = :kind)
+                LIMIT 1
+                """.trimIndent(),
+            ).param("p", personId)
+            .param("kind", kind)
+            .query(UUID::class.java)
+            .optional()
+            .orElse(null)
 
     fun unaccompaniedChildren(shelterId: UUID): List<ChildAtShelter> =
         jdbc

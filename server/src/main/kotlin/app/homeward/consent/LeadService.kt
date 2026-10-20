@@ -33,6 +33,8 @@ class LeadService(
                 .optional()
                 .orElse(null)
         if (shelter != lead.shelterId) throw ApiException(HttpStatus.NOT_FOUND, "Not found at this shelter.")
+        // Pressed twice (or again on a later visit): the person is already protected; no second flag.
+        if (body.personId != null) requests.activeFlagOn(body.personId, body.kind)?.let { return it }
         val note = body.note?.trim()?.ifEmpty { null }
         val id = requests.addFlag(body.personId, body.searchId, body.kind!!, note, lead.staffId) // !!: validated
         audit.log(lead, "FLAG_ADDED", id)

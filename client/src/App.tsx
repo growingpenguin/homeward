@@ -12,6 +12,7 @@ import { AnswersPage } from "./pages/AnswersPage";
 import { CheckCodePage } from "./pages/CheckCodePage";
 import { EditPage } from "./pages/EditPage";
 import { HomePage } from "./pages/HomePage";
+import { LeadPage } from "./pages/LeadPage";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { SearchPage } from "./pages/SearchPage";
@@ -61,6 +62,8 @@ function Session() {
   }
   if (me.data === null || me.data === undefined) return <LoginPage onLoggedIn={(m: Me) => qc.setQueryData(["me"], m)} />;
 
+  // Lead tools are shown only to leads; the backend refuses them to anyone else anyway (/api/lead/**).
+  const isLead = me.data !== "locked" && (me.data.role === "lead" || me.data.role === "coordinator");
   return (
     <AppShell verifyPin={unlockAndReload} stillHere={stillHere} startLocked={me.data === "locked"}>
       <header className="top-bar no-print">
@@ -71,12 +74,13 @@ function Session() {
       <main>
         <h1>{t.appName}</h1>
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<HomePage isLead={isLead} />} />
           {me.data !== "locked" && <Route path="/register" element={<RegisterPage key={me.data.staffId} staffId={me.data.staffId} />} />}
           {me.data !== "locked" && <Route path="/search" element={<SearchPage key={me.data.staffId} staffId={me.data.staffId} />} />}
           <Route path="/answers" element={<AnswersPage />} />
           <Route path="/code" element={<CheckCodePage />} />
-          <Route path="/persons/:id/slip" element={<SlipPage />} />
+          <Route path="/persons/:id/slip" element={<SlipPage isLead={isLead} />} />
+          {isLead && <Route path="/lead" element={<LeadPage />} />}
           <Route path="/persons/:id/edit" element={<EditPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

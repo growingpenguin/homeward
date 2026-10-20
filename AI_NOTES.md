@@ -67,3 +67,10 @@
 - Also wrong: some first-draft tests passed for the wrong reason. A crowded-name test passed even with the bug, because the right person's id happened to sort first; checks of the form `SELECT … FROM f() WHERE …` print nothing (so "pass") when the row is missing. Both were rewritten and proven to fail on the bug.
 - Going live found two problems no local run did: Render rejected a pasted `DB_URL` (the backend now accepts the usual pasted forms and always logs in as the app user), and a late 401 right after "Log out" left the login page stuck (it only happens with real network timing; the fix has a test that recreates the race).
 - Learned: a green test suite says little until each test has been seen to fail. And the live deploy is its own test environment: run the whole flow there in a private window, not only locally.
+
+## 2026-10-20: Codex handoff and the complete reunion tests
+- Asked: continue Claude's handoff, preserve the project rules, finish DB step 6/B6, update the deck and prepare the final release.
+- Kept: a rollback-only SQL journey and a three-desk API journey, with exact response fields, consent, slip proof, revocation, hidden people, children and audits. All 155 SQL checks, 52 backend tests and 26 frontend tests pass. Neon permission checks denied all six attempted no-row writes without changing live data.
+- Changed/rejected: Codex initially expected a requested card to disappear after a flag; that would expose the change. The test now respects retained cards and checks fresh-search exclusion plus Active status. No production code changed. Both new tests were deliberately broken once and observed failing before restoration.
+- Review: Claude CLI was at its session limit; a separate GPT-6-astra reviewer found no actionable issues in the tests. That review was read-only, and the test runs were performed by the implementing agent.
+- Learned: a plausible negative assertion can contradict an intentional privacy guarantee. Read the earlier review decisions before treating a mismatch as a bug.

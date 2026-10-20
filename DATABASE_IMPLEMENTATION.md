@@ -292,4 +292,10 @@ Every table, constraint, view, other function, trigger and grant is identical.
 
 ## Step 6. Full reunion test (database side)
 
-_Not started._
+**Done (2026-10-20, `feature/reunion-tests`):** `06_reunion.sql` follows fictional Sarah and Mina across two shelters as `homeward_app`: misspelled-name match with an exact location-free column allowlist, pending request, adult consent, protection revoking the connection, hidden exact-name exclusion, then a child requiring lead + guardian check + note. Fixtures are rolled back. Rejected writes catch only SQLSTATE 23514, and missing rows fail assertions.
+
+**Tests:** `scripts/db-test.sh` → **155 checks passed** (14 new). Temporarily disabling the protection trigger in the disposable test database made the suite fail on revocation and restoration checks; restored it and reran successfully. No production migration changed.
+
+**Deployed permissions:** checked Neon schema V5 using the real `homeward_app` credentials without printing them. Neither app nor maintenance role is a member of `neon_superuser`. Six no-row writes, each inside a rolled-back transaction, were denied with SQLSTATE 42501: audit UPDATE/DELETE, person DELETE, staff role UPDATE, history INSERT, and audit INSERT with a supplied timestamp. No live rows changed.
+
+**Independent review:** GPT-6-astra reviewed fixtures, preconditions, guards and assertion failure paths; no actionable findings. Claude CLI review was unavailable because its session quota was exhausted.

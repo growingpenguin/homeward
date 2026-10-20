@@ -66,7 +66,7 @@ Spring Boot **4.1.1** (Spring Security 7: `csrf { spa() }` exists) · Kotlin (In
 ### B4–B6 (outline; each re-planned in plan mode when reached)
 - **B4 Matching** (after DB step 4): searches API, `MatchingService` (signals → score + reasons), searcher registered + slip every time, `SearcherStatus` with `type` discriminator.
 - **B5 Consent and protection** (after DB step 5): `VisibilityService`, `ConsentService` (`connectFindable` only on pending, desk check, child rules), `ReunionCodeService` lookup (FOR UPDATE, dummy hash, same reply), flags, lead endpoints, audit everywhere.
-- **B6 Full reunion** (with the frontend): the Sarah Kim flow end to end through the API, then on Render.
+- **B6 Full reunion**: register Sarah and adult sister Mina through the API in independent desk sessions; fuzzy search with a location-free field allowlist; request → Active → consent → Connected. Verify Mina's slip at a third desk before/after consent and clear its proof when done. Add protection after success, hidden-person and child/lead cases, and UUID-scoped audit assertions. Pair with DB step 6, prove both tests fail on a deliberate mutation, then run all suites and independently review. The prior live fresh-browser reunion is recorded separately from these automated tests.
 
 ## Verification
 

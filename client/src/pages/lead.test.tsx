@@ -38,17 +38,23 @@ test("a child is released only after the guardian check, a note and how they'll 
   });
   wrap(<LeadPage />);
   const user = userEvent.setup();
-  const release = await screen.findByRole("button", { name: "Release: connect them" });
-  expect(release).toBeDisabled();
+  const review = await screen.findByRole("button", { name: "Check what will be shared" });
+  expect(review).toBeDisabled();
   await user.click(screen.getByLabelText(/I checked the guardian/));
   await user.type(screen.getByLabelText(/How you checked/), "Mia recognised her dad");
-  expect(release).toBeDisabled();
   await user.type(screen.getByLabelText(/How they will meet/), "Dad comes to the Eastside desk at 3 p.m.");
-  await user.click(release);
+  expect(review).toBeDisabled();   // still needs "the person here agreed"
+  await user.click(screen.getByLabelText(/The person here agreed/));
+  await user.click(review);
+  expect(screen.getByText("“Dad comes to the Eastside desk at 3 p.m.”")).toBeInTheDocument();
+  expect(sent.some((s) => s.path.includes("release-minor"))).toBe(false);   // nothing sent before "Yes"
+  await user.click(screen.getByRole("button", { name: "Yes, release: connect them" }));
   expect(sent.find((s) => s.path === "/api/lead/requests/r1/release-minor")!.body).toEqual({
     guardianChecked: true, note: "Mia recognised her dad", contactPlan: "Dad comes to the Eastside desk at 3 p.m.",
   });
   expect(screen.getByText(/about 9/)).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Lift this flag" }));
+  expect(sent.some((s) => s.path === "/api/lead/flags/f1/clear")).toBe(false);   // asks first
+  await user.click(screen.getByRole("button", { name: "Yes, lift it" }));
   expect(sent.some((s) => s.path === "/api/lead/flags/f1/clear")).toBe(true);
 });

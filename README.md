@@ -13,7 +13,7 @@
 | Eastside Community Center | Volunteer Riley | Lead Morgan |
 | Westfield High Gym | Volunteer Casey | Lead Taylor |
 
-All people in the demo are made up: three shelters, six staff and 200 generated names. Nothing real is stored.
+The seeded data is fictional: three shelters, six staff and 200 generated names. Please use fictional details when trying the demo.
 
 ---
 
@@ -23,7 +23,7 @@ After a hurricane evacuation of about 400,000 people, families are split across 
 
 Homeward is the desk tool those volunteers use **on behalf of** survivors:
 
-1. **Someone is here:** register a person in under two minutes. Only a name or nickname is required, and a paper mode copies paper forms in stacks. They choose what happens if someone looks for them (*Ask me first* is the default), and they get a printed **slip with a code and a PIN**.
+1. **Someone is here:** designed for registration in under two minutes. Only a name or nickname is required, and a paper mode copies paper forms in stacks. They choose what happens if someone looks for them (*Ask me first* is the default), and they get a printed **slip with a code and a PIN**.
 2. **Someone is looking for family:** the person looking is registered too, and the search finds **possible matches across every shelter**. Spelling, sound-alike names, nicknames and age become a score with **plain-English reasons**. **No place is ever shown.**
 3. **Answers waiting:** at the found person's own desk, a volunteer reads the message out, and **they decide**: *Connect*, *Tell them I'm safe (not where I am)*, *Not now* or *Say no*.
 4. **Check a code:** at **any** desk, the slip's code and PIN show the person looking their answer on a full-screen view. Every "no" looks exactly like "still looking".
@@ -87,7 +87,7 @@ The challenge covers the whole reunification problem. I built **one complete loo
 | Someone doesn't want to be found | *Keep me out of searches* means never suggested, even by exact name. A `do_not_disclose` flag beats "findable". |
 | Searcher may be the person they fled | No match, hidden, pending, declined and blocked all give the **byte-identical** reply `{"type":"Active"}`, at every desk |
 | A flag added **after** "Connect" | The reveal is withdrawn at once (database trigger); the searcher sees "still looking" again |
-| A child, found or searching | Never released by a name match: only a lead at the found person's desk, with a guardian check, a note and a preview. An unknown age counts as a child. |
+| A child, found or searching | Never released by a name match: only a lead at the found person's desk, with a guardian check, a note and a preview. An unknown age receives child protections unless explicitly marked as an adult. |
 | No phone | The slip's code + PIN work at any desk; 5 wrong PINs lock it for 15 min, even if sent in parallel |
 | Paper forms, typed in later | Paper mode keeps where it came from ("Sheet 4, line 12") and the date written on the paper; "Check again" finds them for older searches |
 | Bad Wi-Fi, double clicks | Same id on every retry, so stored once; saves waiting for the internet survive the lock |
@@ -99,7 +99,7 @@ The challenge covers the whole reunification problem. I built **one complete loo
 
 | Layer | Choice | Why (full comparisons in the linked docs) |
 |---|---|---|
-| Database | **PostgreSQL 18 on Neon**, Flyway migrations V1–V5 | `pg_trgm` + `fuzzystrmatch` + `unaccent` for matching in SQL. **Triggers enforce the hardest rules** (children, flags, a request can't move, append-only audit), so a backend bug still can't release a child. The app connects as a least-privilege user. [`DATABASE.md`](DATABASE.md) |
+| Database | **PostgreSQL 18 on Neon**, Flyway migrations V1–V5 | `pg_trgm` + `fuzzystrmatch` + `unaccent` for matching in SQL. **Triggers enforce the hardest rules** (children, flags, a request can't move, append-only audit). Database checks require recorded lead approval, a guardian check, and a note before connecting a child. The app connects as a least-privilege user. [`DATABASE.md`](DATABASE.md) |
 | Backend | **Kotlin + Spring Boot 4**, Spring JDBC (no JPA), Spring Security | Dedicated match types omit location; `SearcherStatus.Connected` carries only the consented contact plan. Visible, parameterized SQL. PIN login, CSRF, idle lock. [`BACKEND.md`](BACKEND.md) |
 | Frontend | **React 19 + Vite + TypeScript** (strict), TanStack Query, react-hook-form + zod | Types generated from the backend's OpenAPI; retries only where safe; drafts in `sessionStorage`. [`FRONTEND.md`](FRONTEND.md) |
 | Deploy | Netlify (frontend, proxies `/api/*`) → Render (Docker, free) → Neon | One origin for the browser, so the session and CSRF cookies are first-party |

@@ -137,4 +137,7 @@ CREATE TRIGGER safety_flags_block_reveals
     FOR EACH ROW EXECUTE FUNCTION safety_flags_block_reveals();
 
 -- ---------- what the app may do ----------
+-- The child check trusts staff.role, so the app must not be able to make anyone a lead:
+-- staff accounts are created and changed by the owner only (seed / admin), never by the app.
+REVOKE INSERT, UPDATE ON staff FROM homeward_app;
 GRANT SELECT, INSERT, UPDATE ON contact_requests TO homeward_app;

@@ -35,6 +35,9 @@ INSERT INTO contact_requests (search_id, person_id, state, contact_plan, approve
 VALUES ('00000000-0000-0000-0000-0000000005c1', '00000000-0000-0000-0000-000000000503', 'connected', 'Call City desk', '00000000-0000-0000-0000-0000000000b2', true, 'Ada recognised her dad; school list matches');
 SELECT 'ok, allowed: child with lead + guardian check + note';
 
+SELECT expect_fail($$UPDATE staff SET role = 'lead' WHERE id = '00000000-0000-0000-0000-0000000000b1'$$, 'app promotes a volunteer to lead (to fake a sign-off)');
+SELECT expect_fail($$INSERT INTO staff (shelter_id, display_name, role, pin_hash) VALUES ('00000000-0000-0000-0000-0000000000a1', 'Fake Lead', 'lead', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy')$$, 'app creates a lead account');
+
 -- P2. "Connected" always says how to meet; a request can't be moved
 SELECT expect_fail($$INSERT INTO contact_requests (search_id, person_id, state, contact_plan) VALUES ('00000000-0000-0000-0000-0000000005c2', '00000000-0000-0000-0000-000000000502', 'connected', '   ')$$, 'connected with a blank contact plan');
 SELECT expect_fail($$UPDATE contact_requests SET person_id = '00000000-0000-0000-0000-000000000507' WHERE person_id = '00000000-0000-0000-0000-000000000503'$$, 'move a connected request to another person');

@@ -25,7 +25,7 @@ class SecurityConfig {
         http
             .authorizeHttpRequests {
                 // /error stays open, or every failure would turn into an empty 403.
-                it.requestMatchers("/api/health", "/error", "/api/shelters", "/api/csrf", "/api/login").permitAll()
+                it.requestMatchers("/api/health", "/error", "/api/shelters", "/api/csrf", "/api/login", "/api/openapi.json").permitAll()
                 it.requestMatchers("/api/lead/**").hasRole("LEAD") // coordinators too, through the role hierarchy
                 it.anyRequest().authenticated()
             }

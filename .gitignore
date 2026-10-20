@@ -1,0 +1,20 @@
+# Secrets: never commit
+.env
+.env.*
+!.env.example
+
+# Dependencies and build output
+node_modules/
+build/
+dist/
+.gradle/
+out/
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# Office lock files (a document is open)
+~$*

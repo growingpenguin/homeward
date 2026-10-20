@@ -117,6 +117,7 @@ export const t = {
     waiting: (n: number) => `${n} request${n === 1 ? "" : "s"} from people looking for them`,
     answerNow: "Answer now",
     noSearches: "They haven't asked about anyone yet.",
+    finish: "Finished with this person",
   },
   problem: {
     server: "Something went wrong on our side. Please try again.",

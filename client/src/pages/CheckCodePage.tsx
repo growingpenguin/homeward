@@ -32,10 +32,18 @@ export function CheckCodePage() {
   };
 
   const found = lookup.data?.found ? lookup.data : null;
+  // Done with this person: their slip stops opening anything at this desk, and the screen starts fresh.
+  const finish = () => {
+    void api<void>("/api/lookup/end", { method: "POST", userAction: true }).catch(() => {});
+    lookup.reset();
+    setShowing(null);
+    setCode("");
+  };
+
   if (found && showing !== null) {
     const search = found.searches[showing];
     const last = showing + 1 >= found.searches.length;
-    return <FreshAnswer key={search.searchId} search={search} onDone={() => setShowing(last ? null : showing + 1)} />;
+    return <FreshAnswer key={search.searchId} search={search} onDone={() => (last ? finish() : setShowing(showing + 1))} />;
   }
 
   if (found) {
@@ -50,6 +58,7 @@ export function CheckCodePage() {
         {found.answersWaiting > 0 && (
           <BigButton label={t.check.answerNow} hint={t.check.waiting(found.answersWaiting)} onClick={() => navigate("/answers")} />
         )}
+        <button type="button" onClick={finish}>{t.check.finish}</button>
       </div>
     );
   }

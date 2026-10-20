@@ -79,7 +79,40 @@ Branching follows git-flow: `main` (releases only) ← `develop` (integration, P
 
 ### 2b. Neon: apply V1 with Flyway, check the users
 
-_In progress._
+**Done**
+- Read-only `flyway info` first (Flyway **11.20.3**, Docker image `flyway/flyway:11`): connected to Neon's PostgreSQL 18.6, `V1 base tables` = **Pending**.
+- `flyway migrate` → `Successfully applied 1 migration to schema "public", now at version v1 (execution time 00:01.772s)`. `flyway info` → `V1 | base tables | 2026-10-20 05:20:10 | Success`.
+- Credentials reached Flyway through a temporary owner-only file (deleted right after) and were never printed. The exact command is now `scripts/db-migrate.sh info|migrate|validate` (image pinned to `flyway/flyway:11.20.3`).
+
+**Checks on Neon (owner, read-only)**
+
+| Check | Result |
+| --- | --- |
+| Tables | `audit_log, flyway_schema_history, person_history, persons, reunion_codes, searches, shelters, staff` |
+| Extensions | `fuzzystrmatch 1.2, pg_trgm 1.6, unaccent 1.1` |
+| `homeward_app`, `homeward_maint` | superuser=false, createrole=false, bypassrls=false, member of=[] |
+| Inherited write-all rights | `pg_write_all_data=false`, `neon_superuser=false` for both ✅ (the console-user risk from DATABASE.md doesn't apply: they were created with SQL) |
+| App rights on `audit_log` | insert(staff_id)=true, insert(at)=**false**, update=**false**, delete=**false** |
+| App rights elsewhere | insert into `person_history`=**false**, delete `persons`=**false**, execute history function=**false** |
+
+**Smoke test on Neon, logged in as `homeward_app`** (inside a transaction, then `ROLLBACK`, so nothing was written):
+```
+ok, refused: app deletes persons -> permission denied for table persons
+ok, refused: app updates audit_log -> permission denied for table audit_log
+ok, refused: app deletes audit_log -> permission denied for table audit_log
+ok, refused: app writes fake history -> permission denied for table person_history
+ok, refused: app creates a role -> permission denied to create role
+ok, refused: app drops a table -> must be owner of table persons
+ok, app can read persons: 0 rows
+```
+
+**Changed from the plan**
+- **Passwords:** the plan said the user would set them by hand. Instead, a 40-character random password for `homeward_app` was generated on this Mac, set on Neon with `ALTER ROLE` (passed through an environment variable, never shown), and stored **only** in the git-ignored `.env.local` (`HOMEWARD_APP_DATABASE_URL`, `..._UNPOOLED`, `HOMEWARD_APP_DB_PASSWORD`; names listed in `.env.example`). This way nobody has to see or type it.
+- `homeward_maint` got **no** password: it can't log in until the retention job exists (safer than an unused login).
+- Added `scripts/db-migrate.sh` (not in the plan) so steps 4 and 5 apply migrations with exactly the same tested command.
+- Docs synced: CLAUDE.md, DATABASE.md, BACKEND.md and PROPOSAL.md no longer point to `V1__init.sql`; DATABASE.md's SQL excerpts still match the draft line for line.
+
+**Result:** step 2 done. Neon is at schema version 1, the least-privilege app user works and is locked down as designed.
 
 ## Step 3. Registration (database side)
 

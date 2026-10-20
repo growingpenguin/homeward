@@ -1,0 +1,79 @@
+// src/strings.ts
+// Every word the app shows or reads out (screen readers too), in one place:
+// easy to check for jargon, and ready for Spanish later.
+export const t = {
+  appName: "Homeward",
+  home: {
+    here: "Someone is here",
+    looking: "Someone is looking for family",
+    code: "Check a code",
+  },
+  say: "Say:",
+  steps: {
+    progress: (n: number, total: number) => `Step ${n} of ${total}`,
+    paper: "Copy from the paper form",
+    name: "What should we call you?",
+    age: "About how old are you?",
+    privacy: "If someone comes looking for you, what should we do?",
+    extra: "Anything else? You can skip this.",
+    check: "Check and save",
+  },
+  name: {
+    hint: "It doesn't have to be your legal name. A nickname is fine.",
+    missing: "Please write a name or nickname.",
+    tooLong: "Please use a shorter name.",
+  },
+  age: {
+    notNumber: 'Please write a number, or leave it empty if you don\'t know.',
+    outOfRange: "Please check the age.",
+    childMarkedAdult: "This age is under 18, so this person counts as a child.",
+    adultMarkedChild: "This age is 18 or over. Please check the age, or whether this person is under 18.",
+    adultWithThem: "Is an adult from their family with them?",
+  },
+  messageHint: "A short message for them. Please don't write where you are: that's only shared after they say yes.",
+  recognise: "Anything that helps recognise them? (e.g. \"red jacket, walks with a cane\")",
+  paper: {
+    sheetLine: 'Write where it is on the paper, e.g. "Sheet 4, line 12".',
+    slipCode: "Slip code, if a pre-printed slip was handed out (e.g. HW-7K3P)",
+    badSlip: "That doesn't look like a slip code. It looks like HW- and 4 letters or numbers.",
+    badDate: "Please check the date on the paper.",
+    dateMissing: "Write the date on the paper. If there isn't one, write the day the forms were collected.",
+  },
+  visibility: {
+    findable: { label: "Tell them where I am", hint: "If family looks for you, a volunteer can tell them how to reach you. Safety checks still apply." },
+    ask: { label: "Ask me first", hint: "We'll come to you before telling anyone anything." },
+    hidden: { label: "Keep me out of searches", hint: "People searching won't find you. Only shelter staff will know you're here." },
+  },
+  answers: {
+    connect: (name: string) => `Connect with ${name}`,
+    safe: (name: string) => `Tell ${name} I'm safe (not where I am)`,
+    notNow: "Not now",
+    no: "Say no to this request",
+    willShare: "This will be shared:",
+  },
+  searcher: {
+    active: "Your request is saved. If they choose to connect, we'll let you know here.",
+    safe: "They asked us to tell you they are safe.",
+    connected: "They want to connect. Here's how:",
+    checking: "Checking for the latest answer…",
+    giveBack: "Give the screen back to the volunteer",
+  },
+  code: {
+    label: "Code from the slip",
+    keys: "Code letters and numbers",
+    delete: "Delete last character",
+  },
+  banner: {
+    offline: "No internet right now. What you typed is kept on this device.",
+    notSent: (n: number) => `${n} not sent yet. It will send when the internet is back.`,
+    noDraft: "This device can't keep a draft. Please finish this form before closing it.",
+    connecting: "Connecting. Please wait, this can take up to a minute.",
+  },
+  lock: {
+    title: "Screen locked",
+    pin: "Enter your PIN to carry on",
+    wrong: "That PIN didn't work. Please try again.",
+    unlock: "Unlock",
+    noConnection: "Couldn't check the PIN: no connection. Please try again.",
+  },
+} as const;

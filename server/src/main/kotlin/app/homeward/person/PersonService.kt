@@ -71,6 +71,15 @@ class PersonService(
         return ownShelter(id).view
     }
 
+    // Lead only (/api/lead/**): a lost slip is voided and a new one printed, in one transaction.
+    @Transactional
+    fun reissueSlip(id: UUID): SlipResponse {
+        val staff = currentStaff.get()
+        ownShelter(id)
+        val (code, pin) = codes.reissue(id, staff)
+        return slip(code, pin, staff.shelterId)
+    }
+
     @Transactional
     fun issueSlip(id: UUID): SlipResponse {
         val staff = currentStaff.get()

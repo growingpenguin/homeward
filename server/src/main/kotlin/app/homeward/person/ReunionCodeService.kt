@@ -1,6 +1,7 @@
 package app.homeward.person
 
 import app.homeward.audit.AuditService
+import app.homeward.security.LookupThrottle
 import app.homeward.security.StaffPrincipal
 import app.homeward.web.ApiException
 import org.springframework.dao.DuplicateKeyException
@@ -19,6 +20,7 @@ class ReunionCodeService(
     private val jdbc: JdbcClient,
     private val encoder: PasswordEncoder,
     private val audit: AuditService,
+    private val lookupThrottle: LookupThrottle,
 ) {
     private val random = SecureRandom()
 
@@ -85,6 +87,22 @@ class ReunionCodeService(
     // @Transactional: the row lock (FOR UPDATE) holds until the count is saved, so parallel guesses wait in line.
     @Transactional
     fun lookup(
+        code: String,
+        pin: String,
+        staff: StaffPrincipal,
+    ): UUID? =
+        // A login that has failed 10 lookups in 15 minutes gets the "didn't match" reply without any check,
+        // so codes can't be guessed across many slips. Check → look up → count run under one lock per login.
+        lookupThrottle.guarded(staff.staffId) {
+            if (lookupThrottle.isBlocked(staff.staffId)) {
+                audit.log(staff, "CODE_LOOKUP_FAILED", null)
+                null
+            } else {
+                checkSlip(code, pin, staff).also { if (it == null) lookupThrottle.recordFailure(staff.staffId) }
+            }
+        }
+
+    private fun checkSlip(
         code: String,
         pin: String,
         staff: StaffPrincipal,

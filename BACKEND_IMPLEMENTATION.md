@@ -280,3 +280,24 @@ Hotfix 0.3.2 points `client/netlify.toml` at this address.
 **Final checks:** `scripts/db-test.sh` → 155 passed; JDK 21 `cd server && ./gradlew build` → BUILD SUCCESSFUL, rebuilt `server-1.0.0.jar`, lint passed (52-test successful result reused by Gradle because test inputs were unchanged); frontend lint → 0 errors / 2 existing warnings, `npm test` → 26 passed, `npm run build` → passed (133.07 KB gzip JavaScript). Deck OOXML validation and all-slide visual review passed. Independent release-diff review is recorded in the release PR.
 
 **Release path:** PR into `main`, tag `v1.0.0`, then PR back into `develop`. Render deploy status and live health are checked after merge; those post-merge results belong in the GitHub release notes so this validated source snapshot stays unchanged.
+
+
+## Edge-case campaign (branch `feature/edge-cases`)
+
+Backend tests 52 to **62**. Each new test was seen failing first (a missing fix, or a temporary mutation that was reverted).
+
+| Case | Test | Failing line seen first | Result |
+|---|---|---|---|
+| B1 slip-code guessing | `ConsentApiTest`: after 10 failed lookups a login is refused even with the right code and PIN (same reply as a wrong guess); another login still works. New `LookupThrottle` (10 failures per 15 minutes per staffId, checked under a per-login lock) | `ConsentApiTest.kt:280 a refused lookup must look exactly like a wrong guess` (no throttle yet) | pass |
+| 23 parallel PINs (existing test, changed) | now spread over 3 logins so the per-login limit does not hide the row-lock check; mutation (remove `FOR UPDATE`) still fails it | `23 wrong PINs sent at the same time ... FAILED` | pass |
+| B3 parallel same-id registration | `PersonApiTest`: 8 parallel POSTs, one 201, rest 200, one row | mutation (remove `ON CONFLICT`): `statuses were [400, 400, 400, 400, 400, 201, 400, 400]` | pass, no fix needed |
+| DW4 identical replies | `ConsentApiTest`: status code, content type and raw body equal for no match, pending, declined, blocked | mutation (declined returns Safe): `hidden states differ: [(200, application/json, {"type":"Active"}), ...` | pass |
+| DW5 no location keys | `ConsentApiTest`: scan of every key in status and lookup replies for shelter, homeArea, phone, address, deskPhone; `contactPlan` only with Connected | mutation (extra `homeArea` field in the lookup reply): `lookup reply (found) has a location key "homeArea"` | pass |
+| DW8 audits | `ConsentApiTest`: CONTACT_REQUEST, CODE_LOOKUP_FAILED, CODE_LOOKUP rows carry the right staff and target | mutation (remove the audit call): `contact request audit ==> expected: <1> but was: <0>`; same for `successful slip check audit` | pass |
+| NP2 refused fields | `PersonApiTest`: immigrationStatus, photo, dateOfBirth give 400 with the plain sentence, nothing stored | mutation (`fail-on-unknown-properties: false`): `Status expected:<400>` | pass |
+| NP3 names | `PersonApiTest`: spaces/tab-only and 101 characters get plain 400 sentences; exactly 100 is accepted | mutation (`Size(max = 200)`): `expected:<Please use a shorter name.> but was:<Please write a name or nickname.>` | pass |
+| DQ6 search with no real name | `SearchApiTest`: "", "   ", "...", "- ' -", "!!! ???" and a 101-character name give plain 400 sentences | **real bug**: `expected:<Please write the name of the person they are looking for.> but was:<That couldn't be saved. Please check the form.>` (the element annotations on `soughtNames` are not applied by Kotlin without `-Xemit-jvm-type-annotations`, so the database check was the only guard) | fixed in `SearchService.start`; pass |
+| DQ7 ages | `SearchApiTest`: ageMin > ageMax, negative, above 120 give 400 plain sentences | mutations (comparison disabled; `Max(1200)`): `expected:<Please check the ages: ...> but was:<That couldn't be saved...>` and `expected:<Please check the age.> but was:<...>` | pass |
+| CC4 / TV9 parallel decisions | `ConsentApiTest`: 4 different answers at once on one pending request give one 204 and three 409, one DECISION audit row; double Connect gives `[204, 409]`, one audit row | mutation (drop `AND state = 'pending'`): `exactly one answer wins: [204, 204, 204, 204]` and `one Connect works, the other is told it was answered ==> expected: <[204, 409]...` | pass |
+
+**Found and fixed:** punctuation-only sought names were accepted by Bean Validation and then rejected by the database with a generic sentence. **Noticed, not changed:** the other `@field` annotations placed on list elements (e.g. `otherNames`) have the same no-effect issue; the database checks still protect them. Two shared-database name collisions in new tests were renamed (the demo database is shared between test classes).

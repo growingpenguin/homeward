@@ -254,6 +254,34 @@ class SearchApiTest : IntegrationTest() {
     }
 
     @Test
+    fun `a search with no real name, or with impossible ages, is refused with a plain sentence`() {
+        val alex = loggedIn(LINCOLN, "Volunteer Alex")
+        val searcher = person(alex, "Dorian Tannenbaum", ""","approxAge":35""")
+        val noName = "Please write the name of the person they are looking for."
+        for (names in listOf("\"\"", "\"   \"", "\"...\"", "\"- ' -\"", "\"!!! ???\"")) {
+            search(alex, searcher, names).andExpect {
+                status { isBadRequest() }
+                jsonPath("$.message") { value(noName) }
+            }
+        }
+        search(alex, searcher, "\"${"A".repeat(101)}\"").andExpect {
+            status { isBadRequest() }
+            jsonPath("$.message") { value("Please use a shorter name.") }
+        }
+        search(alex, searcher, "\"Valid Name\"", ""","ageMin":40,"ageMax":30""").andExpect {
+            status { isBadRequest() }
+            jsonPath("$.message") { value("Please check the ages: the first should be the smaller one.") }
+        }
+        for (ages in listOf(""","ageMin":-1""", ""","ageMax":121""", ""","ageMin":999,"ageMax":1000""")) {
+            search(alex, searcher, "\"Valid Name\"", ages).andExpect {
+                status { isBadRequest() }
+                jsonPath("$.message") { value("Please check the age.") }
+            }
+        }
+        assertEquals(0, count("SELECT count(*) FROM searches WHERE searcher_person_id = '$searcher'"))
+    }
+
+    @Test
     fun `a nickname alone finds the full name`() {
         val riley = loggedIn(EASTSIDE, "Volunteer Riley")
         val william = person(riley, "William Thistlewood", ""","approxAge":65""")

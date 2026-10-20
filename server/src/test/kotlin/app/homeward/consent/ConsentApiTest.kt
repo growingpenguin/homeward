@@ -316,4 +316,27 @@ class ConsentApiTest : IntegrationTest() {
         post(jordan, "/api/lead/flags", """{"personId":"$searcher","kind":"suspected_abuser"}""").andExpect { status { isCreated() } }
         mvc.get("/api/answers") { session = riley }.andExpect { jsonPath("$[?(@.requestId == '$req')]") { doesNotExist() } }
     }
+
+    @Test
+    fun `protecting someone twice keeps one flag, and a flagged child is not offered for release`() {
+        val alex = loggedIn(LINCOLN, "Volunteer Alex")
+        val riley = loggedIn(EASTSIDE, "Volunteer Riley")
+        val kid = person(riley, "Wren Albescu", ""","approxAge":7""")
+        val (_, req) = requested(alex, kid, "Wren Albescu")
+        val morgan = loggedIn(EASTSIDE, "Lead Morgan")
+        mvc
+            .get(
+                "/api/lead/overview",
+            ) { session = morgan }
+            .andExpect { jsonPath("$.childrenWaiting[?(@.requestId == '$req')]") { exists() } }
+        repeat(
+            2,
+        ) { post(morgan, "/api/lead/flags", """{"personId":"$kid","kind":"do_not_disclose"}""").andExpect { status { isCreated() } } }
+        assertEquals(1, count("SELECT count(*) FROM safety_flags WHERE person_id = '$kid' AND cleared_at IS NULL"))
+        mvc
+            .get(
+                "/api/lead/overview",
+            ) { session = morgan }
+            .andExpect { jsonPath("$.childrenWaiting[?(@.requestId == '$req')]") { doesNotExist() } }
+    }
 }

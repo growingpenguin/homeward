@@ -129,7 +129,7 @@ class ConsentRepo(
         jdbc
             .sql(
                 """
-                SELECT cr.id, p.id AS person_id, p.preferred_name, sp.preferred_name AS searcher_name, s.relationship, s.message,
+                SELECT cr.id, p.id AS person_id, p.preferred_name, sp.preferred_name AS searcher_name, s.relationship, cr.message,
                        treated_as_minor(p) OR (sp.id IS NOT NULL AND treated_as_minor(sp)) AS child_involved, p.visibility
                 FROM contact_requests cr
                 JOIN persons p ON p.id = cr.person_id
@@ -210,7 +210,7 @@ class ConsentRepo(
             jdbc
                 .sql(
                     """
-                    SELECT cr.id, p.id AS person_id, p.preferred_name, sp.preferred_name AS searcher_name, s.relationship, s.message, p.visibility
+                    SELECT cr.id, p.id AS person_id, p.preferred_name, sp.preferred_name AS searcher_name, s.relationship, cr.message, p.visibility
                     FROM contact_requests cr
                     JOIN persons p ON p.id = cr.person_id
                     JOIN searches s ON s.id = cr.search_id

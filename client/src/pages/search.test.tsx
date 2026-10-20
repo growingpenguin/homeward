@@ -77,6 +77,24 @@ test("search: the person looking is registered, cards show reasons (no place), a
   expect(sent.find((s) => s.path === "/api/searches/s1/requests")!.body).toEqual({ personId: "p1", message: "Your son Luis is looking for you." });
 });
 
+test("search: a child's match card says a lead decides before anything is shared", async () => {
+  const reason = "a child: a lead decides before anything is shared";
+  const card = { personId: "c1", preferredName: "Mia Diaz", approxAge: 9, ageIsEstimate: true, child: true, score: 0.8,
+    reasons: ["name spelled like Mia Diaz", reason], requested: false };
+  fakeBackend({
+    "POST /api/persons": { status: 201, body: {} },
+    "POST /api/searches": () => ({ status: 201, body: { searchId: "s2", searcherPersonId: "x", soughtNames: ["Mia Diaz"], matches: [card] } }),
+  });
+  const user = at("/search");
+  await user.type(screen.getByLabelText("Their name or nickname"), "Luis Diaz");
+  await user.click(screen.getByRole("radio", { name: "Yes" }));
+  await user.click(screen.getByRole("button", { name: "Next" }));
+  await user.type(await screen.findByLabelText(/Name or names/), "Mia Diaz");
+  await user.click(screen.getByRole("button", { name: "Search" }));
+  const article = (await screen.findByText(reason)).closest("article")!;
+  expect(within(article).getByRole("heading", { name: /Mia Diaz/ })).toBeInTheDocument();
+});
+
 test("answers: Connect first shows what will be shared; a child goes to a lead", async () => {
   const sent = fakeBackend({
     "GET /api/answers": { status: 200, body: [

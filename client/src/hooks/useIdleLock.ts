@@ -29,6 +29,9 @@ export function useIdleLock(
       void queryClient.cancelQueries();   // stop anything still loading
       // Forget every person loaded so far; keep who is logged in, and saves waiting for the internet.
       queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
+      // Finished saves and searches (names, match cards) go too; only saves still waiting for the internet stay.
+      const mutations = queryClient.getMutationCache();
+      mutations.getAll().filter((m) => !m.state.isPaused).forEach((m) => mutations.remove(m));
       lockedNow.current = true;
       setLocked(true);
     };

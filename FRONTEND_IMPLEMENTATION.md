@@ -142,6 +142,49 @@ FRONTEND.md updated (the two schema lines).
 **After the fixes:** `npm run lint` 0 errors · `npm test` **17 passed** · `npm run build` passed.
 **Real run again** (paper mode, Volunteer Casey, Westfield): two forms in a row, "Ines Marlowe" and "Bao Castellanos" → `POST /api/persons` **201, 201** with **2 different ids**; the third form opens empty.
 
-## F3–F4
+## F3. Search, Answers waiting, Check a code
 
-_Not started (planned in plan mode with DB steps 4–5 and B4–B5)._
+**Branch:** `feature/frontend-search` (planned in plan mode with DB steps 4–5 and B4–B5).
+
+**Done:**
+- `api/types.ts`: search, consent and lead types from the regenerated schema. The searcher's answer is the union of the backend's three subtypes (`Active | Connected | Safe`), so `SearcherView`'s exhaustive `switch` breaks the build if a fourth ever appears.
+- **Search** ("Someone is looking for family"): who is looking (name + "Is the person looking 18 or over?", because with no answer they count as a child and a lead decides) → registered with `POST /api/persons` → who they're looking for (names, age range, relationship, last place) → match cards with reasons and "a child: a lead decides", never a place; the screen says *"Don't say whether anyone is here"* → "Ask this person" with a message (with the reminder not to write where they are) → **always** ends with the searcher's slip. Draft kept, both ids made once (same id on every retry).
+- **Answers waiting**: who is looking and why, the message to read out (`SayThis`), *Connect with …* (asks how they'll meet, then shows exactly what will be shared before "Yes, share this"), *Tell … I'm safe*, *Not now*, *Say no*; a child → "a lead decides", no Connect button. Home shows the count.
+- **Check a code**: `CodeKeypad` + PIN (PIN box emptied) → the holder's name, "Turn the screen around" (one search at a time, each status fetched fresh) and "Answer now" for requests waiting for them; "Finished" / the last "Give the screen back" calls `POST /api/lookup/end`.
+- F0 review #10: `SearcherView` takes `failed`, so a failed check says "Couldn't check right now" with Try again, never "Checking…" forever.
+
+**Tests:** `npm run lint` 0 errors · `npm test` **21 passed** (4 new): one sentence for every hidden state, a failed check says so · search registers the searcher as an adult, cards show reasons and the warning, the request carries the chosen person and message · Connect shows what will be shared first; a child has no Connect · a miss gets the plain sentence and empties the PIN; a match shows the **fresh** answer (Safe, though the lookup had said Active) and ends the check.
+
+**Real run** (backend against Neon + `npm run dev`, Playwright, fictional people, three shelters):
+```
+Eastside (Riley):  register "Esperanza Quill…", 78, Ask me first          POST /api/persons 201
+Lincoln (Alex):    son "Mateo Quill…" (adult) looks for "Esperansa Quill…" 70–85
+                   card: "Esperanza Quill… (about 78) | name spelled like … | name sounds like … | age fits (about 78)"  (no place)
+                   request with message → 201, searcher's slip HW-…           POST /api/persons/:id/slip 201
+Eastside (Riley):  Answers waiting: "Mateo … is looking for Esperanza …" | Say: "Your son Mateo is looking for you."
+                   Connect → "Call the Eastside desk (555-0102) and ask for …" → POST /api/requests/:id/decision 204
+Westfield (Casey): son's code + PIN → POST /api/lookup 200 → turn the screen → GET /api/searches/:id/status 200
+                   "They want to connect. Here's how: | Call the Eastside desk (555-0102) and ask for Esperanza …"
+```
+
+**Review** (`/code-review`; each finding checked against the code and the backend):
+
+| # | Finding | Fix |
+|---|---|---|
+| 1 | A slip check stayed open on the server (10 min) when the volunteer left via "Answer now", the lock or Home: the next person at the desk could see / answer the previous person's requests | Leaving the screen in any way calls `/api/lookup/end`; "Answer now" shows **only that person's** requests in place (`personId` added to the lookup reply) |
+| 2 | The searcher's view sat inside the staff layout (volunteer's name, "Log out" reachable) | Drawn over the whole page (portal) and the app behind it is made `inert` |
+| 3 | A child's card still had "Safe", "Not now", "Say no" | No answer buttons at all when a child is involved; test |
+| 4 | The instruction "Don't say whether anyone is here" was inside the read-aloud quote | Instruction shown as an instruction; only "We'll ask, and let you know." is read out; test |
+| 5 | Fixing the searcher's name after "Back" was silently ignored (same id) | After the first save it's an edit (`PUT`) |
+| 6 | A search saved with a lost reply, then changed, got 409 with no way out | On that 409 a new search id is made and the search runs once more |
+| 7 | The adult question could be skipped (→ counted as a child, every request waits for a lead) | Must be answered; test |
+| 8 | The lock kept finished searches (names, match cards) in memory | Lock also removes finished mutations; only saves waiting for the internet stay |
+| 9 | "Answer now" listed every request at the desk next to the slip holder's | Covered by #1 |
+| 10 | If only the refresh after "Send the request" failed, the card looked failed | Saved request shows "Asked" at once; the refresh runs in the background |
+| + | Age text written in the component; the PIN sent to `/api/lookup` was never checked by a test | Moved to `strings.ts`. **The new test caught a real bug:** the lookup sent an **empty PIN** (the box was emptied before the request read it; the earlier browser run passed by timing luck). Code and PIN are now passed to the request as values |
+
+**After the fixes:** `npm run lint` 0 errors · `npm test` **21 passed**.
+
+## F4
+
+_Not started._

@@ -54,3 +54,35 @@
 - Kept: Claude's own sync check found the slip didn't work at another desk (the backend only allowed the search's own shelter) and that PROPOSAL.md's demo script showed the location it said was hidden. Codex then found 11 more, all verified: the frontend read a `type` field the Kotlin answer never sent; a child who was *searching* could be connected without a lead; anyone could press "connect findable"; searchers with no match got no slip. A last pass found 7 more, including that a search's searcher could be swapped after a "yes" and that the example message ("I'm at Lincoln High shelter") revealed a location before consent.
 - Changed/rejected: every database fix was re-tested by trying to break it (now 29 checks in DATABASE.md, all passing); "Built" became "MVP" in PROPOSAL.md because nothing is built yet; claims that the database or the screen "can't" leak were narrowed to what's actually enforced.
 - Learned: the dangerous bugs were all at the seams between documents (frontend vs backend field names, rules checked for one side of a connection but not the other). Reviewing each document alone missed them; checking them together found them. My editor also once saved an old copy over a new file, so I check file contents after editing outside the editor.
+
+## 2026-10-20: Building it (database → backend → frontend), live by the evening
+- Asked: Claude (Claude Code) to build the plan one slice at a time across all three layers (registration, then matching, then consent), with plan mode before each phase, git-flow PRs, and a review before every merge. Codex hit its usage limit in the morning, so Claude Code's `/code-review` replaced it until the evening.
+- Kept: the migrations split from the tested draft (V1–V5), the Spring Boot API with a sealed `SearcherStatus`, the React screens from FRONTEND.md, and the logs in `*_IMPLEMENTATION.md`.
+- Changed/rejected: each review found real bugs that the passing tests had missed. All were fixed and each fix tested; tests were checked by temporarily breaking the code to see them fail:
+  - the app's DB user could promote a volunteer to "lead" and so release a child;
+  - parallel PIN guesses got past the 5-try limit, because the lookup had no transaction;
+  - a lead could "release" an adult who never said yes;
+  - in paper mode, the next form reused the saved person's id, so the next person was never stored;
+  - the slip check sent an empty PIN (the box was cleared before the request read it).
+- Also wrong: some first-draft tests passed for the wrong reason. A crowded-name test passed even with the bug, because the right person's id happened to sort first; checks of the form `SELECT … FROM f() WHERE …` print nothing (so "pass") when the row is missing. Both were rewritten and proven to fail on the bug.
+- Going live found two problems no local run did: Render rejected a pasted `DB_URL` (the backend now accepts the usual pasted forms and always logs in as the app user), and a late 401 right after "Log out" left the login page stuck (it only happens with real network timing; the fix has a test that recreates the race).
+- Learned: a green test suite says little until each test has been seen to fail. And the live deploy is its own test environment: run the whole flow there in a private window, not only locally.
+
+## 2026-10-20: Codex handoff and the complete reunion tests
+- Asked: continue Claude's handoff, preserve the project rules, finish DB step 6/B6, update the deck and prepare the final release.
+- Kept: a rollback-only SQL journey and a three-desk API journey, with exact response fields, consent, slip proof, revocation, hidden people, children and audits. All 155 SQL checks, 52 backend tests and 26 frontend tests pass. Neon permission checks denied all six attempted no-row writes without changing live data.
+- Changed/rejected: Codex initially expected a requested card to disappear after a flag; that would expose the change. The test now respects retained cards and checks fresh-search exclusion plus Active status. No production code changed. Both new tests were deliberately broken once and observed failing before restoration.
+- Review: Claude CLI was at its session limit; a separate GPT-6-astra reviewer found no actionable issues in the tests. That review was read-only, and the test runs were performed by the implementing agent.
+- Learned: a plausible negative assertion can contradict an intentional privacy guarantee. Read the earlier review decisions before treating a mismatch as a bug.
+
+## 2026-10-20: Bringing the submission documents up to date
+- Asked: update the design deck to what was built and prepare the release.
+- Kept: the existing 16-slide design, updated live links, migration versions, actual classes/packages and tested behavior. README commands now work independently from the repository root.
+- Changed/rejected: removed claims that the blank paper form or real-person usability testing was complete. The first render dropped emoji-only comparison cells, so those now use explicit text. Corrected the overbroad claim that no searcher reply can contain a location: Connected intentionally carries the agreed contact plan.
+- Learned: validate the PowerPoint structure and inspect its rendered slides; either check alone can miss an unusable result.
+
+## 2026-10-20: Preparing release 1.0.0
+- Asked: continue through the final release after the tests and submission documents.
+- Kept: git-flow; independently reviewed feature PRs into develop, then a release branch with synchronized backend/frontend versions. No production behavior or database migration changed in this release.
+- Checked: 155 SQL checks, the successful 52-test backend result (Gradle reused unchanged test inputs), 26 frontend tests, lint and both builds. Live deployment verification follows the merge and is recorded in the release notes.
+- Learned: distinguish a fresh test execution from a build that correctly reuses an unchanged successful test result, and distinguish a healthy endpoint from proof of which commit is deployed.

@@ -259,6 +259,24 @@ GET /api/me        → 401 without a login
 ```
 Hotfix 0.3.2 points `client/netlify.toml` at this address.
 
-## B6
+## B6. Full reunion through the API
 
-_Not started (re-planned in plan mode when reached)._
+**Done (2026-10-20, `feature/reunion-tests`):** `ReunionApiTest` registers fictional Sarah and Mina through the API at separate desks, searches a misspelled name, checks the match field allowlist, requests contact and issues/checks the searcher's slip at a third desk. It checks Active before consent, exact Connected contact plan after consent, proof cleared by ending lookup, revocation by a later protection, hidden-person exclusion and lead-only child release. Audit assertions are scoped to the new UUIDs. No application code changed.
+
+**Plan refinement:** use independent authenticated desk sessions and public routes, then inspect audit rows. Cover the successful path before each privacy refusal, so missing fixtures cannot make a negative assertion pass.
+
+**Tests:** with JDK 21, `cd server && ./gradlew build` → **52 tests, 0 failures**, ktlint passed. Temporarily replacing Connected with Active made the new test fail at the expected status assertion; restored the code and the full build passed. SQL suite: **155**; frontend: **26**, production build passed, lint 0 errors (2 existing warnings).
+
+**Changed during implementation:** the first test expected an already-requested match card to disappear after protection. Existing B4 behavior deliberately retains that card to avoid revealing a change of consent. Corrected the test to assert that a fresh search excludes the protected person and that the original status is Active; no behavior change needed.
+
+**Live verification:** Render's deployed v0.3.3 and the Netlify API proxy both returned health 200 with schemaVersion 5. Claude's prior fresh-browser three-desk reunion remains the browser verification; this session added automated API coverage, not another browser run.
+
+**Independent review:** GPT-6-astra checked the new API and SQL tests against implementations and plans; no actionable findings. Claude CLI review hit its session quota.
+
+## Release 1.0.0 package (2026-10-20)
+
+**Branch:** `release/1.0.0`, from reviewed `develop` after PRs #30 (reunion tests) and #31 (submission documents). Backend version and frontend package/lockfile versions now agree at 1.0.0; no runtime logic, dependencies, migrations or deployment configuration changed.
+
+**Final checks:** `scripts/db-test.sh` → 155 passed; JDK 21 `cd server && ./gradlew build` → BUILD SUCCESSFUL, rebuilt `server-1.0.0.jar`, lint passed (52-test successful result reused by Gradle because test inputs were unchanged); frontend lint → 0 errors / 2 existing warnings, `npm test` → 26 passed, `npm run build` → passed (133.07 KB gzip JavaScript). Deck OOXML validation and all-slide visual review passed. Independent release-diff review is recorded in the release PR.
+
+**Release path:** PR into `main`, tag `v1.0.0`, then PR back into `develop`. Render deploy status and live health are checked after merge; those post-merge results belong in the GitHub release notes so this validated source snapshot stays unchanged.

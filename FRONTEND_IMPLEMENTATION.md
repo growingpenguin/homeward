@@ -266,3 +266,20 @@ README counts now match the reunion tests. Local commands use subshells so runni
 - **Less to read:** the privacy question is shown once (it was the heading, a "Say:" box and the legend). A searcher's message is labelled "Read this to them:", not "Say:". The age step says "you" throughout.
 
 **Checked:** measured at 820 px, the top bar text, content, button edges and card radios line up (edges 50 / 770 px; radio center = card center). `npm run lint` 0 errors · `npm test` 26 passed · `npm run build` passed.
+
+
+## Edge-case campaign (branch `feature/edge-cases`)
+
+Frontend tests 26 to **34**. Each test was seen failing under a temporary mutation that was then reverted.
+
+| Case | Test | Failing line seen first | Result |
+|---|---|---|---|
+| CH8 child match card | `search.test.tsx`: the card shows "a child: a lead decides before anything is shared" | mutation (child reason filtered out of the list): `Unable to find an element with the text: a child: a lead decides ...` | pass |
+| TV5 drafts per volunteer | `useDraft.test.tsx`: another volunteer never sees a draft; switching volunteer loads theirs; `clearAllDrafts` removes all drafts and nothing else | mutation (key without the staff id): 4 failures; mutation (clear does nothing): `expected [ ...(4) ] to deeply equal [ 'something-else' ]` | pass |
+| TV7 corrupt / expired draft | `useDraft.test.tsx`: broken JSON, older than 12 h (also deleted), no timestamp, wrong shape are discarded | mutation (no expiry check): `expected { name: 'Old' } to deeply equal { name: '' }` | pass |
+| NW1 retry rules | `queryClient.test.ts`: `worthRetrying` retries a network error and 500/502/503/504, never 400/401/403/404/409/422/429, stops after 3 | mutation (4xx check removed): `expected true to be false` | pass |
+| NW5 502 on login | `login.test.tsx`: a 502 is tried again 3 times (fake timers) then shows "Couldn't reach Homeward. Check the internet and try again."; a 401 shows the server's sentence and is not retried | mutation (show the server message for every HttpError): the 502 test fails | pass |
+
+`npm run lint` 0 errors · `npm test` 34 passed.
+
+**Noticed, not changed:** `mayBeChild` in `forms/registerSchema.ts` mirrors the old `treated_as_minor`; after V6 the server also counts an estimated age under 21 as a child, so for an estimated 18 to 20 marked "18 or over" the form does not ask "is an adult with them?" while the server treats the person as a child. This is safe (the server decides) and is left for a follow-up.

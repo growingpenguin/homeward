@@ -18,3 +18,5 @@ services:
         value: homeward_app # the least-privilege app user, never the owner
       - key: DB_PASSWORD
         sync: false
+      - key: COOKIE_SECURE   # session cookie only over HTTPS
+        value: "true"

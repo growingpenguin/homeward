@@ -17,3 +17,10 @@ spring:
 server:
   port: ${PORT:8080}               # Render sets PORT
   shutdown: graceful
+  servlet:
+    session:
+      timeout: 12h                 # a whole shift; the 10-minute idle lock covers laptops left on desks
+      cookie:
+        http-only: true
+        same-site: lax
+        secure: ${COOKIE_SECURE:false}   # true on Render (HTTPS)

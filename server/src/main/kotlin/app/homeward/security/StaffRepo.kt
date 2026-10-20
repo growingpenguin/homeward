@@ -21,7 +21,8 @@ data class ShelterOption(
 class StaffRepo(
     private val jdbc: JdbcClient,
 ) {
-    // Names are matched the way a tired volunteer types them: any case, extra spaces trimmed.
+    // Names are matched the way a tired volunteer types them: any case, extra spaces around the typed name
+    // ignored. Same expression as V2's unique index (lower(display_name)), so it can never match two rows.
     fun findForLogin(
         shelterId: UUID,
         name: String,
@@ -30,7 +31,7 @@ class StaffRepo(
             .sql(
                 """
                 SELECT id, shelter_id, display_name, role, pin_hash FROM staff
-                WHERE shelter_id = :shelterId AND lower(btrim(display_name)) = lower(btrim(:name))
+                WHERE shelter_id = :shelterId AND lower(display_name) = lower(btrim(:name))
                 """.trimIndent(),
             ).param("shelterId", shelterId)
             .param("name", name)

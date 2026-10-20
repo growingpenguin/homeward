@@ -54,3 +54,16 @@
 - Kept: Claude's own sync check found the slip didn't work at another desk (the backend only allowed the search's own shelter) and that PROPOSAL.md's demo script showed the location it said was hidden. Codex then found 11 more, all verified: the frontend read a `type` field the Kotlin answer never sent; a child who was *searching* could be connected without a lead; anyone could press "connect findable"; searchers with no match got no slip. A last pass found 7 more, including that a search's searcher could be swapped after a "yes" and that the example message ("I'm at Lincoln High shelter") revealed a location before consent.
 - Changed/rejected: every database fix was re-tested by trying to break it (now 29 checks in DATABASE.md, all passing); "Built" became "MVP" in PROPOSAL.md because nothing is built yet; claims that the database or the screen "can't" leak were narrowed to what's actually enforced.
 - Learned: the dangerous bugs were all at the seams between documents (frontend vs backend field names, rules checked for one side of a connection but not the other). Reviewing each document alone missed them; checking them together found them. My editor also once saved an old copy over a new file, so I check file contents after editing outside the editor.
+
+## 2026-10-20: Building it (database → backend → frontend), live by the evening
+- Asked: Claude (Claude Code) to build the plan one slice at a time across all three layers (registration, then matching, then consent), with plan mode before each phase, git-flow PRs, and a review before every merge. Codex hit its usage limit in the morning, so Claude Code's `/code-review` replaced it until the evening.
+- Kept: the migrations split from the tested draft (V1–V5), the Spring Boot API with a sealed `SearcherStatus`, the React screens from FRONTEND.md, and the logs in `*_IMPLEMENTATION.md`.
+- Changed/rejected: each review found real bugs that the passing tests had missed. All were fixed and each fix tested; tests were checked by temporarily breaking the code to see them fail:
+  - the app's DB user could promote a volunteer to "lead" and so release a child;
+  - parallel PIN guesses got past the 5-try limit, because the lookup had no transaction;
+  - a lead could "release" an adult who never said yes;
+  - in paper mode, the next form reused the saved person's id, so the next person was never stored;
+  - the slip check sent an empty PIN (the box was cleared before the request read it).
+- Also wrong: some first-draft tests passed for the wrong reason. A crowded-name test passed even with the bug, because the right person's id happened to sort first; checks of the form `SELECT … FROM f() WHERE …` print nothing (so "pass") when the row is missing. Both were rewritten and proven to fail on the bug.
+- Going live found two problems no local run did: Render rejected a pasted `DB_URL` (the backend now accepts the usual pasted forms and always logs in as the app user), and a late 401 right after "Log out" left the login page stuck (it only happens with real network timing; the fix has a test that recreates the race).
+- Learned: a green test suite says little until each test has been seen to fail. And the live deploy is its own test environment: run the whole flow there in a private window, not only locally.

@@ -29,10 +29,17 @@ function message(status: SearcherStatus) {
 }
 
 // `status` comes through freshOnly(): undefined means a fresh answer isn't here yet.
-export function SearcherView({ status, onDone }: { status: SearcherStatus | undefined; onDone: () => void }) {
+// `failed`: the check itself failed, so say so (never "Checking…" forever) and offer to try again.
+type Props = { status: SearcherStatus | undefined; failed?: boolean; onRetry?: () => void; onDone: () => void };
+
+export function SearcherView({ status, failed, onRetry, onDone }: Props) {
   return (
     <main className="searcher-view">
-      {status ? message(status) : <p role="status">{t.searcher.checking}</p>}
+      {status ? message(status) : failed ? (
+        <p role="alert">
+          {t.searcher.failed} <button type="button" onClick={onRetry}>{t.problem.tryAgain}</button>
+        </p>
+      ) : <p role="status">{t.searcher.checking}</p>}
       <button type="button" className="big-button" onClick={onDone}>
         {t.searcher.giveBack}
       </button>

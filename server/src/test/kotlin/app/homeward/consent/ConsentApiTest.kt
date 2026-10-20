@@ -167,6 +167,12 @@ class ConsentApiTest : IntegrationTest() {
             status { isConflict() }
             jsonPath("$.message") { value(ConsentService.NEEDS_LEAD) }
         }
+        // "Safe" would also tell them the child is here: a lead decides that too.
+        post(riley, "/api/requests/$req/decision", """{"choice":"SAFE"}""").andExpect { status { isConflict() } }
+        // The lead on the ASKING side can't release a child at another shelter.
+        val jordan = loggedIn(LINCOLN, "Lead Jordan")
+        post(jordan, "/api/lead/requests/$req/release-minor", """{"guardianChecked":true,"note":"x","contactPlan":"x"}""")
+            .andExpect { status { isNotFound() } }
         // A volunteer can't use the lead route at all.
         post(riley, "/api/lead/requests/$req/release-minor", """{"guardianChecked":true,"note":"x","contactPlan":"x"}""")
             .andExpect { status { isForbidden() } }
@@ -273,5 +279,16 @@ class ConsentApiTest : IntegrationTest() {
         assertEquals(1, count("SELECT count(*) FROM reunion_codes WHERE code = '$code' AND failed_attempts = 0"))
         // Locked: even the right PIN gets the same "didn't match".
         post(alex, "/api/lookup", """{"code":"$code","pin":"$pin"}""").andExpect { jsonPath("$.found") { value(false) } }
+    }
+
+    @Test
+    fun `a lead can't use release-minor to connect an adult who never said yes`() {
+        val alex = loggedIn(LINCOLN, "Volunteer Alex")
+        val riley = loggedIn(EASTSIDE, "Volunteer Riley")
+        val (searchId, req) = requested(alex, person(riley, "Augustin Vale", ""","approxAge":52"""), "Augustin Vale")
+        val morgan = loggedIn(EASTSIDE, "Lead Morgan")
+        post(morgan, "/api/lead/requests/$req/release-minor", """{"guardianChecked":true,"note":"x","contactPlan":"Meet at Eastside"}""")
+            .andExpect { status { isConflict() } }
+        assertEquals("""{"type":"Active"}""", status(alex, searchId))
     }
 }

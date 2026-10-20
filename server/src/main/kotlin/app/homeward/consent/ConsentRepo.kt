@@ -205,31 +205,8 @@ class ConsentRepo(
             .orElse(null)
 
     // ---------- lead page ----------
-    fun childrenWaiting(shelterId: UUID): List<WaitingRequest> =
-        waiting(shelterId, null).filter { it.childInvolved } +
-            jdbc
-                .sql(
-                    """
-                    SELECT cr.id, p.id AS person_id, p.preferred_name, sp.preferred_name AS searcher_name, s.relationship, cr.message, p.visibility
-                    FROM contact_requests cr
-                    JOIN persons p ON p.id = cr.person_id
-                    JOIN searches s ON s.id = cr.search_id
-                    JOIN persons sp ON sp.id = s.searcher_person_id
-                    WHERE cr.state = 'pending' AND s.shelter_id = :shelterId AND p.shelter_id <> :shelterId AND sp.id IS NOT NULL AND treated_as_minor(sp)
-                    """.trimIndent(),
-                ).param("shelterId", shelterId)
-                .query { rs, _ ->
-                    WaitingRequest(
-                        rs.getObject("id", UUID::class.java),
-                        rs.getObject("person_id", UUID::class.java),
-                        rs.getString("preferred_name"),
-                        rs.getString("searcher_name"),
-                        rs.getString("relationship"),
-                        rs.getString("message"),
-                        true,
-                        rs.getString("visibility"),
-                    )
-                }.list()
+    // What this lead can release: requests with a child on either side, waiting at THIS desk (the found person's).
+    fun childrenWaiting(shelterId: UUID): List<WaitingRequest> = waiting(shelterId, null).filter { it.childInvolved }
 
     fun unaccompaniedChildren(shelterId: UUID): List<ChildAtShelter> =
         jdbc

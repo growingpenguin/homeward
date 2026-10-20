@@ -1,0 +1,20 @@
+# Render Blueprint: the backend API. Deploys `main` only (git-flow: main = releases).
+# Secrets are NOT here: DB_URL and DB_PASSWORD are typed into the Render dashboard (sync: false).
+services:
+  - type: web
+    name: homeward-api
+    runtime: docker
+    rootDir: server
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: ohio            # same AWS region as Neon (us-east-2), to keep database calls fast
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /api/health
+    envVars:
+      - key: DB_URL         # jdbc:postgresql://<pooled-host>/<db>?sslmode=require
+        sync: false
+      - key: DB_USER
+        value: homeward_app # the least-privilege app user, never the owner
+      - key: DB_PASSWORD
+        sync: false

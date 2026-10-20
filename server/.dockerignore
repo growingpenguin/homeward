@@ -1,0 +1,6 @@
+build/
+.gradle/
+.kotlin/
+src/main/resources/db/draft/
+src/main/resources/db/seed/
+src/test/

@@ -30,19 +30,24 @@ class ReunionCodeService(
         val hash = encoder.encode(pin)!! // !!: BCryptPasswordEncoder never returns null for a non-null PIN
         repeat(10) {
             val code = "HW-" + (0 until 4).map { ALPHABET[random.nextInt(ALPHABET.length)] }.joinToString("")
-            try {
-                jdbc
-                    .sql("INSERT INTO reunion_codes (code, person_id, pin_hash) VALUES (:code, :person, :hash)")
-                    .param("code", code)
-                    .param("person", personId)
-                    .param("hash", hash)
-                    .update()
+            // ON CONFLICT on the code: a taken random code inserts nothing (and doesn't abort the
+            // transaction, which a failed INSERT would in PostgreSQL), so we simply try another.
+            val inserted =
+                try {
+                    jdbc
+                        .sql(
+                            "INSERT INTO reunion_codes (code, person_id, pin_hash) VALUES (:code, :person, :hash) ON CONFLICT (code) DO NOTHING",
+                        ).param("code", code)
+                        .param("person", personId)
+                        .param("hash", hash)
+                        .update()
+                } catch (e: DuplicateKeyException) {
+                    // one_active_code_per_person: another request gave this person a slip at the same moment.
+                    throw alreadyHasSlip()
+                }
+            if (inserted == 1) {
                 audit.log(staff, "CODE_ISSUED", personId)
                 return code to pin
-            } catch (e: DuplicateKeyException) {
-                // Another request gave this person a slip at the same moment: never make a second one.
-                if (e.message.orEmpty().contains("one_active_code_per_person")) throw alreadyHasSlip()
-                // Otherwise the random code was taken: try another.
             }
         }
         throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Couldn't make a new slip right now. Please try again.")

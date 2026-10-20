@@ -1,7 +1,7 @@
 # Proposal: Homeward — a shelter-run reunification desk
 
 > Fullstack Challenge 26F · Reuniting Separated Families
-> Working name: **Homeward** (placeholder)
+> Working name: **Homeward**
 
 ---
 
@@ -63,7 +63,7 @@ The full problem has many parts (registration, transport, family tracing, medica
 ### ✅ The part I'm building: **Register → Match → Consent → Reconnect**
 
 1. **Fast intake at the shelter desk.** A volunteer registers a person as *"I'm here"* (a presence record), *"I'm looking for someone"* (a search request), or both. Every field except a name-or-nickname is optional.
-2. **Fuzzy matching across all shelters.** Matching that tolerates misspellings, nicknames, approximate ages and missing fields, and gives a short plain-language reason for each candidate ("name sounds like, age within 5 years").
+2. **Fuzzy matching across all shelters.** Matching that tolerates misspellings, nicknames, approximate ages and missing fields, and gives a short plain-language reason for each candidate ("name sounds like, age fits (about 80)").
 3. **Consent-gated contact.** A match **never** shows the searcher where someone is. The sought person (through their shelter's staff) is asked: *"Maria R. is looking for you and left this message. Do you want to connect?"* Only after they say yes do both sides learn how to reach each other.
 4. **A reunion code for people with no phone.** Each registered person gets a short printed slip with a **code + PIN** (e.g. `HW-7K3P` / `4821`). At any shelter, they can show it to a volunteer to check for messages.
 
@@ -106,14 +106,14 @@ The full problem has many parts (registration, transport, family tracing, medica
 | Component | Status | How it would work |
 |---|---|---|
 | Shelter desk app (intake, search, match review, consent) | **MVP (what I'm building)** | Section 5 |
-| Reunion code + PIN slips | **MVP** | Printable slip; lets someone check messages at *any* shelter without a phone |
-| Paper-form fallback | **MVP (printable form + a "Typing from a paper form" switch on Register)** | Same fields as the app. Volunteers transcribe later; record is tagged `source: paper` with the date it was written |
+| Reunion code + PIN slips | **MVP** | Printable slip; lets someone check messages at *any* shelter without a phone. A pre-printed code can be attached to a person (a generator of blank code sheets is not built (planned)) |
+| Paper-form fallback | **MVP (a "Typing from a paper form" switch on Register; the printable blank form is not built (planned))** | Same fields as the app. Volunteers transcribe later; record is tagged `source: paper` with the date it was written |
 | Agency / institution imports (nursing homes, schools, hospitals, bus manifests) | Not built | CSV upload to a staging table, then the same matching pipeline. School and nursing-home lists are the best leads for children and elderly people moved by other agencies |
 | Offline mode | Not built (designed for) | PWA with a local IndexedDB queue; records get client-generated UUIDs so syncing later is idempotent. Conflicts are rare because records are mostly append-only |
 | Hotline / SMS | Not built | Call-center staff use the same desk app. SMS only sends "you have a message, visit any shelter desk" — never a location |
 | Public "I'm safe" lookup | Not built | Only for people who opted into "findable by anyone"; shows only "safe as of <date>" |
-| Coordinator dashboard | Stretch | Counts per shelter, open searches for **unaccompanied minors** first, possible duplicate records |
-| Data retention | Designed (database permission in place; purge job not built yet) | Records expire 90 days after the event closes; consent and audit logs are kept separately in a minimal form |
+| Coordinator dashboard | Not built (planned) | Counts per shelter, open searches for **unaccompanied minors** first, possible duplicate records |
+| Data retention | Designed (the `homeward_maint` role exists; the purge job is not built (planned)) | Records expire 90 days after the event closes; consent and audit logs are kept separately in a minimal form |
 
 ## 5. Core flows
 
@@ -129,19 +129,19 @@ The full problem has many parts (registration, transport, family tracing, medica
 ### Flow B: "I'm looking for someone"
 1. Volunteer records who they're looking for: name(s) and nicknames, age range, relationship, last known place (school, nursing home, street), and a short message ("Mom, I'm safe and looking for you. Love, Ana"). **The message never says where the searcher is**: it's read to the other person before they decide, so the screen reminds the volunteer, and the location is only shared through the contact plan after "Connect".
 2. System shows **possible matches** with reasons. The volunteer **never sees the location of a non-findable person**.
-3. Volunteer picks "Possible match → send contact request", or "No match yet → save search". Either way, the searcher is registered too (a name is enough) and gets a printed slip, so they can check back at any desk. Saved searches are re-run when new people are registered (designed; built right after the core loop, see BACKEND.md Open items).
+3. Volunteer picks "Possible match → send contact request", or "No match yet → save search". Either way, the searcher is registered too (a name is enough) and gets a printed slip, so they can check back at any desk. A saved search is re-run by hand with **Check again** (`POST /api/searches/{id}/check`). Automatic re-runs when new people are registered are not built (planned).
 
 ### Flow C: Consent and reconnect
 1. Contact request shows up in the sought person's shelter queue (and on their code lookup).
 2. Staff read the message to them. They choose **Connect / Tell them I'm safe / Not now / Say no to this request**. "Tell them I'm safe" sends a fixed sentence with no location.
-3. **Connect** → both shelters see each other's location and a contact plan (call the shelter desk phone, arrange transport).
+3. **Connect** → the searcher gets the contact plan text that the found person's desk wrote (for example call the shelter desk phone, arrange transport). Locations are not shown to anyone on their own.
    Someone who chose *"Tell them where I am"* has said yes in advance, so a volunteer can connect them without asking again (safety flags still apply; children always need a lead).
-4. **Not now / Say no / hidden / no match** → the searcher always sees the **same message**: *"Your request is active. If we find a match and they choose to connect, we'll let you know here."* No response gives away whether a person exists or what they decided.
+4. **Not now / Say no / hidden / no match** → the searcher always sees the **same message**: *"Your request is saved. If they choose to connect, we'll let you know here."* No response gives away whether a person exists or what they decided.
 
 ### Flow D: Children (minors < 18)
-- A minor registered without a guardian is flagged **Unaccompanied** and shown first on the lead page and the Home badge.
+- A minor registered without a guardian is flagged **Unaccompanied** and shown first on the lead page. (Home shows only the count of answers waiting.)
 - "Connect" needs a lead's sign-off whenever **either** person is a child: the one being looked for or the one searching.
-- A hidden child doesn't show up in searches. A guardian looking for them goes through a lead, who can find and check them. Release always requires a **supervisor sign-off** with a verification checklist (knowledge questions, child recognises adult if age-appropriate, cross-check with school list). A matching name is not enough.
+- A hidden child doesn't show up in searches. A guardian looking for them goes through a lead, who can find and check them (the database allows a lead to find hidden people, but a lead search screen is not built (planned)). Release always requires a **supervisor sign-off** with a verification checklist (knowledge questions, child recognises adult if age-appropriate, cross-check with school list). A matching name is not enough.
 - Custody disputes / safety concerns → supervisor can place a **hold** that stops release and escalates.
 
 ## 6. Data model (draft; the final, tested version is in [`DATABASE.md`](DATABASE.md))
@@ -180,10 +180,10 @@ The output is a **score + human-readable reasons**. **The system suggests, peopl
 2. **Identical responses** for "not registered", "hidden", "declined" and "pending". You cannot tell from the outside whether someone exists.
 3. **Default is "Ask me first."** Being findable is opt-in.
 4. **Collect the minimum.** No ID numbers, no immigration status, no SSN, no photos in the MVP. Nicknames are fine. Written into the UI: *"You don't need to give your legal name."*
-5. **Every search and reveal is audit-logged** with the staff member who did it. Unusual patterns (one searcher looking for many unrelated people, repeated searches after a decline) raise a flag for the lead.
-6. **Safety flags** (`do_not_disclose`, `suspected_abuser`) override everything, including "findable".
+5. **Every search and reveal is audit-logged** with the staff member who did it. Unusual patterns (one searcher looking for many unrelated people, repeated searches after a decline) would raise a flag for the lead (pattern flags are not built (planned); the audit log is the record for now).
+6. **Safety flags** (`do_not_disclose`, `suspected_abuser`) override everything, including "findable". In the UI a lead can set only `do_not_disclose`; the other kinds go through the API.
 7. **Minors need a supervisor** to release.
-8. **Data expires.** A retention job purges personal data after the recovery period.
+8. **Data expires.** A retention job purges personal data after the recovery period (not built (planned)).
 9. **Staff access is scoped**: volunteers see their own shelter's people plus match *summaries*; leads see more; coordinators have the same rights as leads, and their own dashboard shows only counts.
 
 ## 9. Edge cases I'm designing for
@@ -193,16 +193,16 @@ The output is a **score + human-readable reasons**. **The system suggests, peopl
 | No phone, no contacts | Shelter desk is the contact point; printed reunion code + PIN works at any shelter |
 | No ID | Nothing requires ID. Verification uses shared knowledge and the sought person's own consent |
 | Gives a fake or partial name | Allowed; `preferred_name` + `other_names`. Matching also uses nicknames and age (place and household planned) |
-| Abuser searching for a victim | No location until consent; identical "pending" response; audit log + pattern flags; `do_not_disclose` flag |
+| Abuser searching for a victim | No location until consent; identical "pending" response; audit log (pattern flags are not built (planned)); `do_not_disclose` flag |
 | Undocumented person afraid to register | No legal name, no ID, no status collected; plain-language privacy promise printed on the slip |
-| Paper-only shelter | Printable form with the same fields; "Typing from a paper form" switch on Register; `source=paper` + original date kept |
+| Paper-only shelter | "Typing from a paper form" switch on Register (a printable blank form with the same fields is not built (planned)); `source=paper` + original date kept |
 | Same person registered twice (moved shelters) | The same ID is never saved twice; a person registered twice shows up as a match for a lead to check. Automatic merge suggestions are a stretch goal |
 | Spelling differences / transcription errors | Phonetic + trigram matching; nicknames table |
 | Child at school when buses left | Unaccompanied-minor flag, priority queue, supervisor-verified release; school lists via import (future) |
 | Elderly parent moved by another agency | Matched by name and age now; the volunteer sees "last known place = Seaview Nursing Home" on the search. Place as an automatic signal and institution imports come later |
-| Spouse rescued two days later | Saved searches are re-run on every new registration (designed, built right after the core loop) |
+| Spouse rescued two days later | The saved search can be re-run with "Check again" (automatic re-runs are not built (planned)) |
 | Person can't read / doesn't speak English | Volunteer-operated; simple wording; i18n-ready strings (Spanish as first extra language, stretch) |
-| Lost reunion code slip | Volunteer can look someone up by name + verification questions; code can be reissued |
+| Lost reunion code slip | A lead reissues the slip from the person's slip page (`/persons/:id/slip`), reached for example from the lead page's list of unaccompanied children. The old PIN stops working. There is no lookup by name (planned) |
 | Volunteer makes a mistake | An Edit button fixes it, and every edit keeps a snapshot; nothing is revealed without a second, explicit consent step |
 | Wi-Fi drops | MVP: the form keeps a local draft so nothing typed is lost. Full offline queue is designed but not built |
 | Someone dies / sensitive news | Out of scope for the app; flagged to trained staff. The app never sends death notifications |
@@ -238,7 +238,7 @@ Netlify: React app (loads instantly, even while the backend wakes up)
       │  /api/*  (proxied, so the browser sees one site and login cookies just work)
       ▼
 Render: Kotlin + Spring Boot (Docker)
-      │  Spring Security · visibility service · matching service · Flyway
+      │  Spring Security · visibility service · matching service
       ▼
 Neon: PostgreSQL (pg_trgm + fuzzystrmatch + unaccent, triggers, location-free view)
 ```
@@ -253,7 +253,7 @@ The lab mostly uses React + Node. I kept React, but chose **Kotlin + Spring Boot
 | Why it's better here | What it gives this project |
 |---|---|
 | **Fuzzy matching built in** | `pg_trgm` (similar spelling) and `fuzzystrmatch` (sounds alike) match "Rosa Rodrigues" to "Rosa Rodriguez" with no extra search service |
-| **Safety rules inside the database** | Default `visibility = 'ask'`, a location-free view for searching, a trigger that blocks releasing a child without a lead, and an audit log the app can't edit. **Tested** on PostgreSQL 15 (Neon's newer version is re-tested before deploy) |
+| **Safety rules inside the database** | Default `visibility = 'ask'`, a location-free view for searching, a trigger that blocks releasing a child without a lead, and an audit log the app can't edit. **Tested** on PostgreSQL 18.6 (Neon's version) |
 | **Relational data** | People ↔ searches ↔ matches ↔ consent are linked records, which is what a relational DB is for |
 
 **Alternatives:**
@@ -280,7 +280,7 @@ Details: [`DATABASE.md`](DATABASE.md).
 
 **What Spring Boot adds (the framework):**
 - **Spring Security** handles PIN login, sessions, roles (volunteer < lead < coordinator) and the 10-minute idle lock. It's proven code I don't have to write myself, which matters most for the security-critical part.
-- **Flyway** runs the tested SQL schema as migrations `V1`–`V3` (split from the tested draft step by step).
+- **Flyway** runs the tested SQL schema as migrations `V1`–`V5` (split from the tested draft step by step). The app never migrates itself: migrations run through `scripts/db-migrate.sh`.
 - **Testcontainers** runs tests against a **real Postgres**, so the database's own safety rules (triggers, view, permissions) are tested as well as the Kotlin code.
 - **Bean Validation + springdoc OpenAPI** give forgiving validation and an API description the frontend's types are generated from.
 - **Spring JDBC, not JPA/Hibernate.** Matching is hand-written SQL (trigram + sound-alike), and an ORM would hide or fight it.
@@ -302,8 +302,8 @@ Details, including NestJS and FastAPI, plus a scorecard against the scenario's n
 | **React Hook Form + zod** | Step-by-step forms that forgive missing info, with drafts auto-saved in the browser |
 | **TanStack Query** | Automatic retries when shelter Wi-Fi drops |
 | **Types generated from the backend's OpenAPI** | Frontend and backend can't drift apart; the searcher screen's type has no location field |
-| **Vite + PWA plugin** | A clear path to offline mode later |
-| **Print CSS** | Slips, code sheets and paper forms print straight from the browser |
+| **Vite** | Fast builds. A PWA plugin for offline mode is not built (planned) |
+| **Print CSS** | Slips print straight from the browser (code sheets and blank paper forms are not built (planned)) |
 
 **Alternatives:**
 - Next.js: server rendering isn't needed for a staff tool, and it adds a second server next to Spring.
@@ -323,7 +323,7 @@ Details, including the library choices and a scorecard against the scenario's ne
 
 | Gave up | Why it's worth it | How I reduce the cost |
 |---|---|---|
-| **Slow cold start.** Render's free tier sleeps after ~15 min idle, and a JVM can take up to a minute to wake | One leaked location can put someone in danger; compile-time and database-level guarantees are worth a slow first load | Frontend on Netlify loads instantly with a "Connecting. Please wait" message; lazy initialization + small JVM heap; keep-alive ping during the review window |
+| **Slow cold start.** Render's free tier sleeps after ~15 min idle, and a JVM can take up to a minute to wake | One leaked location can put someone in danger; compile-time and database-level guarantees are worth a slow first load | Frontend on Netlify loads instantly with a "Connecting. Please wait" message; lazy initialization + small JVM heap (a keep-alive ping is not built (planned)) |
 | **Tight memory** (512 MB on the free tier) | Spring Boot fits with a tuned JVM | `-XX:MaxRAMPercentage`, no unused Spring starters |
 | **Less familiar to lab reviewers** than Node | The code is short and readable Kotlin; the README explains the choice | Clear package layout, comments where the privacy rules live |
 | **Two languages** (Kotlin + TypeScript) instead of one | Generated types from OpenAPI keep them in sync | One `make`/script to regenerate types |
@@ -341,24 +341,27 @@ Other tradeoffs I'll name in the README:
 
 | # | Milestone | Done when |
 |---|---|---|
-| 0 | Skeleton deployed | React page on Netlify calls `/api/health` on the Spring Boot service on Render, with Neon connected and Flyway applied. **Deploy on day 1** (also measures the real cold start) |
+| 0 | Skeleton deployed | React page on Netlify calls `/api/health` on the Spring Boot service on Render, with Neon connected and the migrations applied. **Deploy on day 1** (also measures the real cold start) |
 | 1 | Data model + seed | Migrations, 3 shelters, ~200 fictional people with messy names |
 | 2 | Intake (Flow A) | Register a person in < 2 min, printable slip with code + PIN |
 | 3 | Search + matching (Flow B) | Ranked candidates with reasons; tests for misspellings, nicknames, missing fields |
 | 4 | Consent + reconnect (Flow C) | Contact request queue; identical responses tested |
 | 5 | Minors + safety flags (Flow D) | Unaccompanied-minor priority, supervisor release, `do_not_disclose` |
-| 6 | Paper fallback | Printable form + "Typing from a paper form" switch |
+| 6 | Paper fallback | "Typing from a paper form" switch (printable blank form: not built (planned)) |
 | 7 | README + screenshots + AI notes | Private-window test of the live link |
-| — | Stretch | Coordinator dashboard, duplicate merge, Spanish, offline queue |
+| — | Stretch (not built) | Coordinator dashboard, duplicate merge, Spanish, offline queue |
 
 ## 13. Demo script (how a reviewer will try it)
 
-1. Log in as a volunteer at **Lincoln High Shelter** (demo PIN in README).
-2. Register **"Ana Rodriguez"** looking for her mother **"Rosa Rodrigues, ~78, Seaview Nursing Home"**.
-3. See the match **"Rosa Rodriguez, 80"** with reasons ("name sounds like…, age close"). Note that no shelter or location is shown.
-4. Switch to the **Eastside** volunteer → see the contact request → Rosa chooses *Connect* → both desks see the plan. Ana can also check her answer at any desk with her slip.
-5. Try searching for **"Daniel Price"** (registered as *hidden*) → you get the same "request is active" message as for a nonexistent person.
-6. Register an **unaccompanied 9-year-old** → see the priority flag and the supervisor-only release.
+The same steps as the README "Try it" walkthrough. All people are fictional seed or demo data.
+
+1. Log in as **Volunteer Riley** at **Eastside**. Choose *Someone is here*, then *No, the person is here with me*, and register "Rosa", about 80, *Ask me first*. Save.
+2. Log out. Log in as **Volunteer Alex** at **Lincoln**. Choose *Someone is looking for family*, enter her son "Marco" (an adult), and search for "Rossa", 75 to 85. Her card shows reasons and no place. Choose *Ask this person*, add a message, then *Done: print their slip* and print it, noting the code and PIN.
+3. Log out. At **Westfield** (Volunteer Casey), choose *Check a code*, type Marco's code and PIN, then *Turn the screen around*. It says: *"Your request is saved…"*.
+4. Log out. At **Eastside** (Riley), open *Answers waiting*, choose *Connect with Marco*, write how they'll meet, and confirm.
+5. Back at **Westfield**, check Marco's slip again: *"They want to connect. Here's how: …"*.
+
+Try a child too. Register a 9-year-old at Eastside and search for her from Lincoln. The volunteer gets no buttons, only *"a lead decides"*. Lead Morgan at Eastside releases her from the lead page, after a guardian check, a note and a preview of what will be shared.
 
 ## 14. Open questions / risks
 

@@ -167,6 +167,13 @@ Westfield (Casey): son's code + PIN → POST /api/lookup 200 → turn the screen
                    "They want to connect. Here's how: | Call the Eastside desk (555-0102) and ask for Esperanza …"
 ```
 
-## F4
+## F4. Lead page
 
-_Not started._
+**Branch:** `feature/frontend-lead` (on top of F3).
+
+**Done:**
+- **Lead page** (`/lead`, shown only when the login's role is lead or coordinator; the backend refuses `/api/lead/**` to anyone else): children waiting at this desk with the searcher's message, a guardian-check box, a note and how they'll meet; the Release button stays disabled until all three are there. Children without an adult here (link to their page). Active flags with *Lift this flag*.
+- **On a person's page, for leads:** *Protect this person: never share anything* (a `do_not_disclose` flag) and *Reprint a lost slip* (old code stops working, the new PIN shown once).
+- Home shows the lead page link to leads only.
+
+**Tests:** `npm run lint` 0 errors · `npm test` **23 passed** (2 new): the lead link only for leads · Release disabled until guardian check + note + plan, then sends exactly those; flags can be lifted · `npm run build` passed.

@@ -2,7 +2,8 @@
 -- Three shelters from the demo script in PROPOSAL.md, and staff to log in with.
 -- Demo PIN for every staff account: 2468 (public on purpose, listed in the README). Stored only as a BCrypt hash.
 -- Only volunteers and leads: a public PIN must never open a coordinator account on the live site.
--- Re-runnable: a second run updates the rows to match this file (e.g. a rotated PIN hash).
+-- Re-runnable: a second run updates shelters and staff to match this file (e.g. a rotated PIN hash);
+-- the 200 people at the end are only added once and never overwritten (see there).
 
 INSERT INTO shelters (id, name, area, desk_phone) VALUES
   ('d0000000-0000-0000-0000-000000000001', 'Lincoln High Shelter',      'North district', '555-0101'),
@@ -23,3 +24,21 @@ FROM (VALUES
 ) AS v(id, shelter_id, display_name, role), demo_pin
 ON CONFLICT (id) DO UPDATE SET shelter_id = EXCLUDED.shelter_id, display_name = EXCLUDED.display_name,
                                role = EXCLUDED.role, pin_hash = EXCLUDED.pin_hash;
+
+-- A crowd of 200 FICTIONAL people (made-up first + last name combinations), so matching has
+-- something realistic to sort through: accents, lower case, nicknames, unknown ages, all three
+-- privacy choices, spread over the three shelters. Fixed ids, so a second run adds nothing.
+-- (People registered during the demo are left alone: DO NOTHING, not DO UPDATE.)
+WITH firsts AS (SELECT ARRAY['Maria', 'José', 'ana', 'Luis', 'Grace', 'Tom', 'Aisha', 'Dmitri', 'Lupe', 'Bill',
+                             'Katie', 'Nguyen', 'Fatima', 'Pedro', 'Mei', 'Samuel', 'Rosa', 'Ivan', 'Leila', 'Joe'] AS a),
+     lasts  AS (SELECT ARRAY['Garcia', 'Pérez', 'Johnson', 'Okafor', 'Nguyen', 'Smith', 'Rodriguez', 'Haddad',
+                             'Kowalski', 'brown', 'Martinez', 'Lee', 'Ali', 'Silva', 'Chen'] AS a)
+INSERT INTO persons (id, shelter_id, preferred_name, approx_age, visibility, entered_by)
+SELECT ('d1000000-0000-0000-0000-' || lpad(i::text, 12, '0'))::uuid,
+       ('d0000000-0000-0000-0000-00000000000' || (1 + i % 3))::uuid,
+       firsts.a[1 + i % 20] || ' ' || lasts.a[1 + (i * 7) % 15],
+       CASE WHEN i % 9 = 0 THEN NULL ELSE 18 + (i * 13) % 70 END,                 -- every 9th age unknown
+       CASE WHEN i % 10 = 0 THEN 'hidden' WHEN i % 4 = 0 THEN 'findable' ELSE 'ask' END,
+       ('d0000000-0000-0000-0000-0000000000' || (ARRAY['a1', 'b1', 'c1'])[1 + i % 3])::uuid
+FROM generate_series(1, 200) AS i, firsts, lasts
+ON CONFLICT (id) DO NOTHING;

@@ -3,6 +3,8 @@
 // It replaces the WHOLE screen (no staff menus, badges or other people behind it).
 // SearcherStatus has no shelter or address field; only a "Connected" answer carries
 // a contact plan, and the backend sends one only after the other person said yes.
+import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import type { SearcherStatus } from "../api/types";
 import { t } from "../strings";
 
@@ -29,13 +31,30 @@ function message(status: SearcherStatus) {
 }
 
 // `status` comes through freshOnly(): undefined means a fresh answer isn't here yet.
-export function SearcherView({ status, onDone }: { status: SearcherStatus | undefined; onDone: () => void }) {
-  return (
-    <main className="searcher-view">
-      {status ? message(status) : <p role="status">{t.searcher.checking}</p>}
+// `failed`: the check itself failed, so say so (never "Checking…" forever) and offer to try again.
+type Props = { status: SearcherStatus | undefined; failed?: boolean; onRetry?: () => void; onDone: () => void };
+
+export function SearcherView({ status, failed, onRetry, onDone }: Props) {
+  // Drawn over the WHOLE page (outside the app), and the app behind it is made inert:
+  // the searcher can't see or reach the volunteer's name, menus or "Log out", not even with Tab.
+  useEffect(() => {
+    const app = document.getElementById("root");
+    if (app) app.inert = true;
+    return () => {
+      if (app) app.inert = false;
+    };
+  }, []);
+  return createPortal(
+    <section className="searcher-view" aria-live="polite">
+      {status ? message(status) : failed ? (
+        <p role="alert">
+          {t.searcher.failed} <button type="button" onClick={onRetry}>{t.problem.tryAgain}</button>
+        </p>
+      ) : <p role="status">{t.searcher.checking}</p>}
       <button type="button" className="big-button" onClick={onDone}>
         {t.searcher.giveBack}
       </button>
-    </main>
+    </section>,
+    document.body,
   );
 }

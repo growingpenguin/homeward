@@ -13,8 +13,23 @@ export type LoginRequest = Required<Schemas["LoginRequest"]>;
 export type ShelterOption = Required<Schemas["ShelterOption"]>;
 export type Me = Required<Schemas["Me"]>;
 
-// Not in the backend yet (B4 adds the searcher-facing types); kept by hand until then. No location fields.
-export type SearcherStatus =
-  | { type: "Active" }
-  | { type: "Safe" }
-  | { type: "Connected"; contactPlan: string };
+// Searches and matching (staff-facing: match cards never carry a location).
+export type StartSearchRequest = Schemas["StartSearchRequest"];
+export type MatchCard = Required<Schemas["MatchCard"]>;
+export type SearchResult = Required<Omit<Schemas["SearchResult"], "matches">> & { matches: MatchCard[] };
+export type ContactRequestIn = Schemas["ContactRequestIn"];
+
+// The ONLY answer a searcher ever sees: Active, Safe, or Connected with a contact plan. Built from the
+// backend's three subtypes, so a new one would have to be added here (and in SearcherView) on purpose.
+export type SearcherStatus = Schemas["Active"] | Required<Schemas["Connected"]> | Schemas["Safe"];
+export type SearchAnswer = Required<Omit<Schemas["SearchAnswer"], "status">> & { status: SearcherStatus };
+export type LookupOut = Required<Omit<Schemas["LookupOut"], "searches">> & { searches: SearchAnswer[] };
+
+// Answers waiting and the lead page.
+export type WaitingRequest = Required<Schemas["WaitingRequest"]>;
+export type DecisionIn = Schemas["DecisionIn"];
+export type MinorReleaseIn = Schemas["MinorReleaseIn"];
+export type FlagIn = Schemas["FlagIn"];
+export type ChildAtShelter = Required<Schemas["ChildAtShelter"]>;
+export type ActiveFlag = Required<Schemas["ActiveFlag"]>;
+export type LeadOverview = { childrenWaiting: WaitingRequest[]; unaccompaniedChildren: ChildAtShelter[]; flags: ActiveFlag[] };

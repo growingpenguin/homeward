@@ -222,11 +222,73 @@ Result after fixes: `02_seed.sql: 5 passed`, `03_registration.sql: 18 passed`, `
 
 ## Step 4. Safe matching (`V3__safe_matching.sql`)
 
-_Not started._
+**Branch:** `feature/db-matching` · planned in plan mode together with step 5, B4–B5 and F3–F4 (approved 2026-10-20).
+
+**Done:**
+- `V3__safe_matching.sql` cut from the draft (sections copied verbatim, by line range): `safety_flags` (+ lock trigger, no-reactivate), `search_candidates` view, `nicknames`, `match_candidates`, `find_candidates`, grants.
+- **Fix 1 (setup review, Codex P2): age counts before the 100-candidate cut.** The rough order now adds `+0.5` when the age fits and `−0.5` when it doesn't (unknown age = no change). DATABASE.md's excerpt and text updated; a script checked every quoted line still exists in V3.
+- **Fix 2 (step 3 review, deferred): a handed-out slip stays with its person.** Trigger `reunion_codes_keep_person`: once `person_id` is set it can't change (to someone else or back to blank); a pre-printed slip can still be handed out once.
+- Demo seed: **200 fictional people** (made-up first + last name combinations; accents, lower case, nicknames, every 9th age unknown, all three privacy choices, mostly "ask"; spread over the 3 shelters), fixed ids, `DO NOTHING` so demo registrations are never overwritten.
+
+**Tests:** `scripts/db-test.sh` → **all passed**; new `04_matching.sql` **27 passed** (as `homeward_app`): misspelling, no accents, sound-alike, nickname · age signal only when both sides know one · hidden adult, hidden child, `do_not_disclose` (even when findable) and departed people never found · the view has no location columns, `find_candidates` returns only 6 signal columns · crowded name · flags: lift allowed, re-activate / rewrite / delete / "about nobody" refused, lifted flag makes the person findable again · same match twice and score > 1 refused · slip can't move. `02_seed.sql` now 7 (200 people, stored once after two runs, spread as described).
+
+**Test problem found and fixed:** the crowded-name test first passed **even with the old ordering**, because the 80-year-old's test id `00000000-…409` sorts before every random id, so the id tie-break brought her in anyway. Her id now sorts last (`ffffffff-…`); with the old ordering the test fails (`FAIL: crowded name: Maria Garcia aged 80 comes back first for 75-85`), with the fix it passes. Checked both ways before committing.
+
+**Review** (`/code-review`; each finding checked against the SQL, refusal messages read to make sure each test is refused for the right reason):
+
+| # | Finding | Result |
+|---|---|---|
+| 1 | Checks of the form `SELECT assert_true(...) FROM f() WHERE id = …` print **nothing** (so pass) when the row is missing | **Fixed:** they read the row as a value, so a missing row prints `FAIL` |
+| 2 | A handed-out slip could still be rewired by changing its **code or PIN** instead of `person_id` | **Fixed:** person, code and PIN are fixed once handed out (failed tries, lock and voiding still change); tests |
+| 3 | The app could update every column of `match_candidates` and suggest a hidden or protected person directly | **Fixed:** `UPDATE (decision, reviewed_by)` only; a trigger refuses suggesting anyone not in `search_candidates`; tests |
+| 4 | ±0.5 for the age outweighed a full name match, so a wrong age guess could push the right name out | **Fixed:** +0.3 when the age fits, no penalty; crowded-name test still passes |
+| 5 | The draft no longer matches the migrations, though DATABASE.md said its SQL came from the draft | **Fixed:** draft marked "reference only"; DATABASE.md now points at the migrations |
+| 6 | The security-barrier view may stop PostgreSQL using the name indexes (full scan per search) | **Measured on Neon** (below); fine at demo scale, noted for 400k |
+| 7 | `safety_flags_no_reactivate` is in V3, the plan put it in V4; its comment mentioned V4's trigger | **Kept in V3** (it belongs with the flags table, so flags are safe from the first moment); comment corrected |
+| 8 | "No location" test was a denylist of 8 names | **Fixed:** the view's columns must equal an exact allowed list |
+| 9 | No test for the `minor` output, a moved person, or a custody-hold child | **Fixed:** unknown age → child, 40 → adult, moved person found, custody-hold child still matchable for the lead |
+| 10 | Seed header promised re-runs update rows; the 200 people are only added once | **Fixed** (seed and `db-seed.sh` comments) |
+| (V4 #10) | Trigger functions executable by PUBLIC: the app could attach them to its own table | **Fixed for V3's functions** (`REVOKE EXECUTE … FROM PUBLIC`); test |
+
+**After the fixes:** `04_matching.sql` **39 passed**; `scripts/db-test.sh` all passed.
+
+**On Neon** (after step 5 was merged): `scripts/db-migrate.sh migrate` → `Successfully applied 2 migrations … now at version v4`; `scripts/db-seed.sh` → 205 people (200 seeded + 5 fictional ones registered in earlier runs). `find_candidates` as `homeward_app`, timed with `\timing` from this laptop: **35 ms** for "Maria Garsia" 30–50 (17 rows) and **35 ms** for "Jose Perez" (23 rows), network round trip included. Fine for the demo; at ~400k people the security-barrier view's likely full scan (review #6) needs measuring again, noted in the README tradeoffs.
 
 ## Step 5. Consent and protection (`V4__consent_and_protection.sql`)
 
-_Not started._
+**Branch:** `feature/db-consent` (on top of `feature/db-matching`).
+
+**Done:**
+- `V4__consent_and_protection.sql` moved unchanged from the draft (by line range): `contact_requests` + the guard trigger (flags on person, search or searcher; a child on either side needs a lead, a guardian check and a note; a request can't be moved), `searches_keep_searcher`, `persons_recheck_minor`, `safety_flags_block_reveals`, grant (`SELECT, INSERT, UPDATE` on `contact_requests`; no DELETE).
+- Backend tests now take the expected schema version from the newest `V<n>__*.sql` file (they had `2` written in, and failed when V3 arrived).
+
+**Tests:** `scripts/db-test.sh` → **all passed**; new `05_protection.sql` **24 passed** (as `homeward_app`): child connected only with lead + guardian check + note (no lead / volunteer approver / no check / blank note refused) · blank contact plan refused · request can't move (person or search), app can't delete requests · flag on the person beats "findable" (Connect and "safe only" refused) · a flag added after Connect switches it to `blocked` · flag on the searcher, and on the search, blocks Connect, even with a temp table named `safety_flags` · `do_not_disclose` only on a person · a child **searcher** also needs a lead · the searcher can't be swapped (on a search with one, or after a Connect) · correcting an age to a child sends unapproved Connects back to `pending`, lead-approved ones stay.
+
+**Proof that nothing else changed:** V1–V4 and the draft applied to two databases in one `postgres:18.6` container, `pg_dump --schema-only` compared statement by statement. Only differences, all intended:
+```
+find_candidates                      (age before the 100-candidate cut, step 4 fix)
++ reunion_codes_keep_person + trigger (slip stays with its person, step 4 fix)
++ staff_login_name index              (V2, from the backend plan)
+```
+Every table, constraint, view, other function, trigger and grant is identical.
+(This comparison was made before the review fixes below; those are tightenings, all listed here.)
+
+**Review** (`/code-review`; each finding checked against the SQL; the new block-path test was proven by removing that branch of the trigger → `FAIL: a flag on the SEARCH added after a reveal blocks it`, then restored):
+
+| # | Finding | Result |
+|---|---|---|
+| 1 | **The child check trusts `staff.role`, and the app could UPDATE `staff`**: promote a volunteer to lead, release a child, set it back | **Fixed:** `REVOKE INSERT, UPDATE ON staff FROM homeward_app` (the backend never writes staff); tests |
+| 2 | Opposite lock order (Connect vs. age correction / new flag) can deadlock | Fails safe (PostgreSQL aborts one, nothing leaks). **B5:** the service retries once on a deadlock |
+| 3 | Flag on the search / on the searcher **after** a reveal: untested | **Fixed:** both tested |
+| 4 | The port dropped the "connected before" preconditions | **Fixed:** restored |
+| 5 | "Flag with two subjects" and "custody-hold child still matchable" not ported | **Fixed** (in `04_matching.sql`) |
+| 6 | Checks print nothing (so pass) when the row is missing | **Fixed:** every state check reads the row as a value |
+| 7 | No test that a lead's sign-off can't be erased from a connected child request | **Fixed:** tested |
+| 8 | App had UPDATE on every column of `contact_requests` | **Fixed:** only `state, contact_plan, approved_by, guardian_checked, note, decided_at`; backdating tested |
+| 9 | A flag inserted already lifted still blocked reveals (the guard ignores it) | **Fixed:** the blocking trigger skips it, same as the guard; tested |
+| 10 | Trigger functions executable by PUBLIC | **Fixed** for V3 and V4 functions; tested |
+
+**After the fixes:** `05_protection.sql` **36 passed**; `scripts/db-test.sh` all passed; `./gradlew build` 31 tests, 0 failed.
 
 ## Step 6. Full reunion test (database side)
 

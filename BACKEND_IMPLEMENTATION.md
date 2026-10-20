@@ -174,6 +174,75 @@ unknown field "ssn"                    → {"message":"Something in this form is
 
 **After the fixes:** `./gradlew build` → **31 tests, 0 failed**; `scripts/db-test.sh` → all passed.
 
-## B4–B6
+## B4. Matching API
+
+**Branch:** `feature/backend-matching` · planned in plan mode with DB steps 4–5, B5 and F3–F4.
+
+**Done** (`match/` package):
+- `POST /api/searches` `{id, searcherPersonId, soughtNames, ageMin, ageMax, relationship, lastKnownPlace}`: the person searching is registered first with the existing `POST /api/persons` (same id rules, slip, privacy choice), and must be at this desk. Re-sent form (same id) → 200, new → 201. Matching runs, audit `SEARCH`.
+- `GET /api/searches/{id}` ("Check again"): own desk only (else 404), runs matching again so someone registered later still gets suggested; never the same person twice (UNIQUE).
+- `POST /api/searches/{id}/requests` `{personId, message}`: only a person this search suggested **and** matching may still find; marks the suggestion confirmed, saves the message on the search, makes a `pending` contact request (a re-send returns the same one), audit `CONTACT_REQUEST`.
+- `MatchingService`: `0.6 × spelling + 0.15 per sound-alike word (max 2) + 0.2 nickname + 0.1 right age − 0.15 wrong age`, suggestions from 0.35, top 10; reasons in plain words ("name spelled like…", "name sounds like…", "a nickname matches…", "age fits (about 80)", "a child: a lead decides before anything is shared"). Never suggests the searcher to themselves.
+- `MatchCard` has **no** shelter, home area, phone, description or paper fields, and cards are read **through** `search_candidates`, so someone hidden or protected after being suggested drops out.
+- `isMinor` named once in the OpenAPI (`@get:`/`@param:JsonProperty`), the F0 note.
+
+**Changed from the plan:** the searcher is registered with the existing person endpoint instead of inside the search request (one registration path, same rules).
+
+**Tests:** `./gradlew build` → **36 tests, 0 failed** (5 new in `SearchApiTest`): a misspelling at another shelter is found with reasons, and the reply contains none of `Eastside`, `Seaview`, the phone, the desk phone, `shelter`, `homeArea`, `phone` · hidden people never suggested, nor the searcher themselves · "Check again" finds a paper form typed in later, once · another desk gets 404 · a request only to a suggested match, `pending`, stored once, both sends audited · the searcher must be registered at this desk · OpenAPI has `isMinor` and no stray `minor`.
+
+**Review** (`/code-review`; each finding checked against the code):
+
+| # | Finding | Result |
+|---|---|---|
+| 1 | A search by (or about) a **flagged** searcher still got suggestions and could send requests | **Fixed:** a flag on the search or the searcher → the same empty list as "no match", requests refused; test |
+| 2 | People under `custody_hold` / `suspected_abuser` were still suggested (the view only hides `do_not_disclose`) | **Fixed:** anyone with an active flag is left off the cards (the view still has them, for leads); test |
+| 3 | A nickname alone ("Bill" → William) scored under the threshold | **Fixed:** nickname +0.3, threshold 0.3; unit check + API test |
+| 4 | A requested card disappeared when the person hid later, but stayed when they declined (hiding vs declining told apart) | **Fixed:** a requested card always stays, re-sending always answers 201; test |
+| 5 | The message was stored once per search, so a 2nd request or a re-send changed what the 1st person is read | **Fixed:** `V5__request_message.sql`, message on the request, written once (no UPDATE grant); DB test |
+| 6 | Someone hidden between the read and the insert made the whole search fail | **Fixed:** the insert skips anyone no longer in the view |
+| 7 | Missing tests (flags, nickname, re-send, …) | **Fixed:** 4 new tests |
+| 8 | Opening a search re-ran matching and wrote audit rows on every GET | **Fixed:** `GET` only reads; `POST /api/searches/{id}/check` runs it again |
+| 9 | CLAUDE.md's layout names one place for visibility; cards are decided in `SearchRepo` | **Noted:** cards are staff-facing (the volunteer at the desk); what a **searcher** sees is only ever `SearcherStatus` from `VisibilityService` (B5). `SearchRepo.shown` is the one place for cards |
+| 10 | A re-send with a changed form silently returned the old search | **Fixed:** same id + changed form → 409 "already saved, start a new search"; test |
+
+**After the fixes:** `./gradlew build` → **40 tests, 0 failed**; `scripts/db-test.sh` all passed (05: 37).
+
+## B5. Consent and protection
+
+**Branch:** `feature/backend-consent`.
+
+**Done** (`consent/` package, plus `ReunionCodeService.lookup/reissue`):
+- `SearcherStatus` (`consent/dto/searcher/`, sealed, `type` = Active / Safe / Connected): the only answer a searcher gets; no location field; only Connected carries the contact plan.
+- `VisibilityService.statusForSearcher`: allowed at the desk where the search was made or after the searcher's own slip was checked (session, 10 minutes); otherwise, and for no match / pending / declined / blocked / any active flag on the person, search or searcher: `{"type":"Active"}`. Reveals audited (`REVEALED_CONTACT`, `REVEALED_SAFE`).
+- `ConsentService`: `decide` (CONNECT / SAFE / NOT_NOW / DECLINE, at the person's desk or after their slip was checked), `connectFindable` (either desk, only `findable`, never a child), `releaseMinor` (lead route, guardian check + note + contact plan, approver from the login). Every change is `WHERE state = 'pending'`; flags checked in code, and a guard refusal from the database becomes the same plain "can't be shared" sentence. Audited (`DECISION`, `MINOR_RELEASED`).
+- `POST /api/lookup`: row lock, 5 wrong PINs → 15 minutes, unknown / locked / wrong all get the same reply after the same BCrypt work; a match lists the holder's own searches with their answers and how many requests wait for them. Audited right and wrong.
+- `GET /api/answers`, `POST /api/requests/{id}/decision`, `POST /api/requests/{id}/connect-findable`, `GET /api/searches/{id}/status`.
+- Lead (`/api/lead/**`): overview (children waiting, unaccompanied children, active flags), release a child, add / lift a flag (own shelter, audited), reissue a lost slip (old code voided in the same transaction).
+- DB review #2 (deadlock between Connect and an age correction / new flag): `retryOnce` runs the decision once more (PostgreSQL cancels one side and nothing of it is saved).
+
+**Found while building:** `treated_as_minor()` of the empty row from a LEFT JOIN (a search with no registered searcher) is `true` (unknown = child), so the SQL checks `sp.id IS NOT NULL` first. And a searcher registered with only a name counts as a child, so "Connect" then needs a lead: correct and safe, so F3 must ask whether the person searching is an adult.
+
+**Tests:** `./gradlew build` → **45 tests, 0 failed** (5 new in `ConsentApiTest`): no match / pending / declined / blocked / another desk → byte-identical `{"type":"Active"}` · Connect shows exactly `{"type":"Connected","contactPlan":…}` (no home area, phone or shelter), audited, and a flag added later turns it back into Active · a child: volunteer CONNECT → 409, volunteer on the lead route → 403, lead without check or with a blank note → 400, then released and audited · findable: other desk 404, "ask" person 409, connected at once, a later DECLINE can't overwrite · slip: another desk sees Active until the searcher's slip is checked there (lower case, no prefix), wrong PIN and unknown code get the identical reply, 5 wrong PINs lock even the right PIN, every lookup audited.
+
+**On Neon:** V5 applied (`now at version v5`).
+
+**Review** (`/code-review`; each finding checked against the code; the parallel-guess test was proven to fail without the fix):
+
+| # | Finding | Result |
+|---|---|---|
+| 1 | **`lookup` had no transaction**: the `FOR UPDATE` lock ended at once, so parallel guesses all got a full PIN check (the 5-try limit could be brute-forced) | **Fixed:** `@Transactional`; test: 23 parallel wrong PINs → locked, and the count is 0 (only 5 checked). Without the fix: `FAILED` |
+| 2 | **`release-minor` could connect any request**, e.g. an adult who never said yes, by a lead writing their own contact plan | **Fixed:** only when a child is involved; test |
+| 3 | The lead on the **asking** side could release a child at another shelter alone | **Fixed:** only a lead at the found person's desk (where the child is, or where the adult being asked says yes); test |
+| 4 | The "verified by slip" marker stayed 10 minutes on the shared desk session, even after the next person's failed check | **Fixed:** every lookup clears it first; `POST /api/lookup/end` when done; test |
+| 5 | "Safe" for a child skipped the lead | **Fixed:** "Safe" with a child involved → a lead decides; test |
+| 6 | Requests from a flagged searcher / search still listed, with their message to read out | **Fixed:** left out of Answers waiting; test |
+| 7 | Adding a flag could be the deadlock victim against a Connect: flag lost, Connect kept | **Fixed:** `LeadService.addFlag` is retried once like decisions |
+| 8 | Lead overview missed some child requests | **Fixed** by #3: it lists exactly what this lead can release (child requests at this desk) |
+| 9 | Unknown / locked code vs. wrong PIN take slightly different time (extra UPDATE) | **Noted:** both do one BCrypt check; the remaining difference is one small UPDATE, accepted for the demo (README tradeoffs) |
+| 10 | `LeadController` ran SQL and transactions itself | **Fixed:** moved to `LeadService` |
+
+**After the fixes:** `./gradlew build` → **48 tests, 0 failed**.
+
+## B6
 
 _Not started (re-planned in plan mode when reached)._

@@ -1,6 +1,7 @@
 package app.homeward.web
 
 import app.homeward.IntegrationTest
+import app.homeward.db.newestMigration
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
@@ -17,7 +18,7 @@ class HealthControllerTest : IntegrationTest() {
         mvc.get("/api/health").andExpect {
             status { isOk() }
             jsonPath("$.status") { value("ok") }
-            jsonPath("$.schemaVersion") { value(2) }
+            jsonPath("$.schemaVersion") { value(newestMigration) }
         }
     }
 

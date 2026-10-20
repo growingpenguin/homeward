@@ -208,7 +208,7 @@ class PersonApiTest : IntegrationTest() {
                 session = s
                 with(csrf())
                 contentType = MediaType.APPLICATION_JSON
-                content = """{"preferredName":"Sarah Kim","approxAge":29}"""
+                content = """{"preferredName":"Sarah Kim","approxAge":29,"unaccompanied":false,"visibility":"ask"}"""
             }.andExpect {
                 status { isOk() }
                 jsonPath("$.preferredName") { value("Sarah Kim") }
@@ -220,6 +220,44 @@ class PersonApiTest : IntegrationTest() {
                 "SELECT count(*) FROM person_history WHERE person_id = '$id' AND before->>'preferred_name' = 'Sarah Kimm' AND changed_by = 'd0000000-0000-0000-0000-0000000000a1'",
             ),
         )
+    }
+
+    @Test
+    fun `an edit that leaves out the privacy choice is refused, never reset to the default`() {
+        val s = loggedIn()
+        val id = UUID.randomUUID()
+        register(s, """{"id":"$id","preferredName":"Dana Ruiz","visibility":"hidden","unaccompanied":false}""")
+        mvc
+            .put("/api/persons/$id") {
+                session = s
+                with(csrf())
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"preferredName":"Dana Ruiz","unaccompanied":false}"""
+            }.andExpect {
+                status { isBadRequest() }
+                jsonPath("$.message") { value("Please choose one of the three options.") }
+            }
+        assertEquals(1, count("SELECT count(*) FROM persons WHERE id = '$id' AND visibility = 'hidden'"))
+    }
+
+    @Test
+    fun `a slip code typed in lower case attaches, and a re-send can add a slip code`() {
+        TestDatabase.asOwner {
+            it.createStatement().execute(
+                "INSERT INTO reunion_codes (code, pin_hash) VALUES ('HW-5M8R', '\$2a\$10\$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy') ON CONFLICT DO NOTHING",
+            )
+        }
+        val s = loggedIn()
+        val id = UUID.randomUUID()
+        register(s, """{"id":"$id","preferredName":"Late Slip","otherNames":[null,"  ","Lee"]}""").andExpect {
+            status { isCreated() }
+            jsonPath("$.otherNames.length()") { value(1) }
+            jsonPath("$.hasSlip") { value(false) }
+        }
+        register(s, """{"id":"$id","preferredName":"Late Slip","slipCode":" hw-5m8r "}""").andExpect {
+            status { isOk() }
+            jsonPath("$.hasSlip") { value(true) }
+        }
     }
 
     @Test

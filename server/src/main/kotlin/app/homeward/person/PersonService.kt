@@ -23,6 +23,15 @@ class PersonService(
     @Transactional
     fun register(r: RegisterPersonRequest): Registered {
         val staff = currentStaff.get()
+        if (r.otherNames.any { (it?.trim()?.length ?: 0) > 100 }) {
+            throw ApiException(
+                HttpStatus.BAD_REQUEST,
+                "Please use shorter other names.",
+            )
+        }
+        if (r.source == "paper" && r.paperRef.isNullOrBlank()) {
+            throw ApiException(HttpStatus.BAD_REQUEST, "Write where it is on the paper, e.g. \"Sheet 4, line 12\".")
+        }
         if (r.source == "paper" && r.recordedAt == null) {
             throw ApiException(
                 HttpStatus.BAD_REQUEST,
@@ -37,7 +46,9 @@ class PersonService(
         ) {
             throw ApiException(HttpStatus.CONFLICT, "Something went wrong with this form. Please start it again.")
         }
-        if (created && r.slipCode != null) codes.attachPrePrinted(r.slipCode, r.id, staff)
+        // A slip code also counts on a re-send (e.g. the first try timed out and the code was added),
+        // as long as the person has no working slip yet.
+        if (r.slipCode != null && !stored.view.hasSlip) codes.attachPrePrinted(r.slipCode, r.id, staff)
         return Registered(people.find(r.id)!!.view, created) // !!: just checked it exists
     }
 
@@ -49,6 +60,12 @@ class PersonService(
         id: UUID,
         e: EditPersonRequest,
     ): PersonView {
+        if (e.otherNames.any { (it?.trim()?.length ?: 0) > 100 }) {
+            throw ApiException(
+                HttpStatus.BAD_REQUEST,
+                "Please use shorter other names.",
+            )
+        }
         ownShelter(id)
         people.update(id, e, currentStaff.get().staffId)
         return ownShelter(id).view

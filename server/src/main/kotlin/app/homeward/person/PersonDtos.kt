@@ -20,23 +20,27 @@ data class RegisterPersonRequest(
     @field:NotBlank(message = "Please write a name or nickname.")
     @field:Size(max = 100, message = "Please use a shorter name.")
     val preferredName: String?,
-    val otherNames: List<String> = emptyList(),
+    @field:Size(max = 10, message = "Please keep it to 10 other names.")
+    val otherNames: List<String?> = emptyList(),
     @field:Min(0, message = "Please check the age.") @field:Max(120, message = "Please check the age.")
     val approxAge: Int? = null, // null = unknown (0 is a real age: a baby)
     val ageIsEstimate: Boolean = true,
     @JsonProperty("isMinor")
     val isMinor: Boolean? = null, // null = not sure
     val unaccompanied: Boolean = false,
-    @field:Size(max = 200) val homeArea: String? = null,
-    @field:Size(max = 500) val description: String? = null,
-    @field:Size(max = 40) val phone: String? = null,
+    @field:Size(max = 200, message = "Please shorten the home area.") val homeArea: String? = null,
+    @field:Size(max = 500, message = "Please shorten the description.") val description: String? = null,
+    @field:Size(max = 40, message = "Please check the phone number.") val phone: String? = null,
     @field:Pattern(regexp = "findable|ask|hidden", message = "Please choose one of the three options.")
     val visibility: String = "ask", // safe default, also the database's
-    @field:Pattern(regexp = "app|paper") val source: String = "app",
-    @field:Size(max = 100) val paperRef: String? = null, // "Sheet 4, line 12"
+    @field:Pattern(
+        regexp = "app|paper",
+        message = "Something went wrong with this form. Please start it again.",
+    ) val source: String = "app",
+    @field:Size(max = 100, message = "Please shorten where it is on the paper.") val paperRef: String? = null, // "Sheet 4, line 12"
     val recordedAt: Instant? = null, // the date written on the paper
     @field:Pattern(
-        regexp = "^HW-[2-9A-HJ-NP-Z]{4}$",
+        regexp = "(?i)^\\s*HW-[2-9A-HJ-NP-Z]{4}\\s*$", // case and spaces don't matter; the service cleans it up
         message = "That doesn't look like a slip code. It looks like HW- and 4 letters or numbers.",
     )
     val slipCode: String? = null, // a pre-printed slip to attach
@@ -47,18 +51,23 @@ data class EditPersonRequest(
     @field:NotBlank(message = "Please write a name or nickname.")
     @field:Size(max = 100, message = "Please use a shorter name.")
     val preferredName: String?,
-    val otherNames: List<String> = emptyList(),
+    @field:Size(max = 10, message = "Please keep it to 10 other names.")
+    val otherNames: List<String?> = emptyList(),
     @field:Min(0, message = "Please check the age.") @field:Max(120, message = "Please check the age.")
     val approxAge: Int? = null,
     val ageIsEstimate: Boolean = true,
     @JsonProperty("isMinor")
     val isMinor: Boolean? = null,
-    val unaccompanied: Boolean = false,
-    @field:Size(max = 200) val homeArea: String? = null,
-    @field:Size(max = 500) val description: String? = null,
-    @field:Size(max = 40) val phone: String? = null,
+    // Required on edit (no defaults): a field left out must never quietly reset a safety choice,
+    // e.g. "hidden" back to "ask" or an unaccompanied child back to accompanied.
+    @field:NotNull(message = "Please answer whether an adult from their family is with them.")
+    val unaccompanied: Boolean?,
+    @field:Size(max = 200, message = "Please shorten the home area.") val homeArea: String? = null,
+    @field:Size(max = 500, message = "Please shorten the description.") val description: String? = null,
+    @field:Size(max = 40, message = "Please check the phone number.") val phone: String? = null,
+    @field:NotNull(message = "Please choose one of the three options.")
     @field:Pattern(regexp = "findable|ask|hidden", message = "Please choose one of the three options.")
-    val visibility: String = "ask",
+    val visibility: String?,
 )
 
 // Staff-only view of a person at their own shelter (never shown to a searcher).

@@ -37,10 +37,7 @@ class PersonRepo(
             .param("name", r.preferredName)
             .param(
                 "otherNames",
-                r.otherNames
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                    .toTypedArray(),
+                cleanNames(r.otherNames),
             ).param("age", r.approxAge)
             .param("estimate", r.ageIsEstimate)
             .param("isMinor", r.isMinor)
@@ -74,18 +71,15 @@ class PersonRepo(
             .param("name", e.preferredName)
             .param(
                 "otherNames",
-                e.otherNames
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                    .toTypedArray(),
+                cleanNames(e.otherNames),
             ).param("age", e.approxAge)
             .param("estimate", e.ageIsEstimate)
             .param("isMinor", e.isMinor)
-            .param("unaccompanied", e.unaccompanied)
+            .param("unaccompanied", e.unaccompanied!!) // !!: @NotNull on edit
             .param("homeArea", e.homeArea.blankToNull())
             .param("description", e.description.blankToNull())
             .param("phone", e.phone.blankToNull())
-            .param("visibility", e.visibility)
+            .param("visibility", e.visibility!!) // !!: @NotNull on edit
             .param("staffId", staffId)
             .update()
 
@@ -124,3 +118,6 @@ class PersonRepo(
 }
 
 private fun String?.blankToNull() = this?.trim()?.takeIf { it.isNotEmpty() }
+
+// Empty entries and missing values are dropped; validation already capped the list and each name's length.
+private fun cleanNames(names: List<String?>) = names.mapNotNull { it.blankToNull() }.toTypedArray()

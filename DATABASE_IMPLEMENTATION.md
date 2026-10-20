@@ -15,6 +15,11 @@ Branching follows git-flow: `main` (releases only) ← `develop` (integration, P
 - `.gitignore` keeps secrets (`.env`) and build output out of git.
 - Public GitHub repo: `growingpenguin/homeward`.
 
+**Codex review (`codex review --base develop`):** 2 real findings, both verified:
+- P1: `connectFindable` could turn an earlier "no" into a Connect. Fixed in BACKEND.md: it only works on a request that is still pending, checked inside the UPDATE.
+- P2: the 100-candidate cut in `find_candidates` ignores age. Added to DATABASE_PLAN.md step 4 (fixed when `find_candidates` moves into `V2__safe_matching.sql`, with a crowded-name test).
+- Also found: the review command in CLAUDE.md didn't work (`--base` takes no instructions). Fixed.
+
 **Changed from the plan:** the plan said "first commit on `main` with the docs". To follow git-flow strictly, `main` only got an empty commit; the docs arrive through a feature branch and a PR. `main` will receive them later through a release.
 
 ---

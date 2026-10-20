@@ -89,6 +89,29 @@ class PersonApiTest : IntegrationTest() {
     }
 
     @Test
+    fun `two forms with the same id sent at the same time store one person and neither fails`() {
+        val s = loggedIn()
+        val id = UUID.randomUUID()
+        val pool =
+            java.util.concurrent.Executors
+                .newFixedThreadPool(8)
+        val start = java.util.concurrent.CountDownLatch(1)
+        val jobs =
+            (1..8).map {
+                pool.submit<Int> {
+                    start.await()
+                    register(s, """{"id":"$id","preferredName":"Parallel Pennington"}""").andReturn().response.status
+                }
+            }
+        start.countDown()
+        val statuses = jobs.map { it.get() }
+        pool.shutdown()
+        assertTrue(statuses.all { it == 200 || it == 201 }, "statuses were $statuses")
+        assertEquals(1, statuses.count { it == 201 }, "exactly one form creates the person: $statuses")
+        assertEquals(1, count("SELECT count(*) FROM persons WHERE id = '$id'"))
+    }
+
+    @Test
     fun `an unknown field like ssn is refused, not silently dropped`() {
         register(loggedIn(), """{"id":"${UUID.randomUUID()}","preferredName":"X","ssn":"123-45-6789"}""").andExpect {
             status { isBadRequest() }

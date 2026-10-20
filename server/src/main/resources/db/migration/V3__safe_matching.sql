@@ -120,10 +120,11 @@ LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
     ) s
     -- A rough order using ALL signals before the cut, so a strong sound or nickname match
     -- isn't dropped for a weaker spelling match, and the right age counts too: with 100+ people
-    -- of the same name, the one of the right age must not be cut off (unknown age = no change).
+    -- of the same name, the one of the right age must not be cut off. A small bonus only, no
+    -- penalty: ages are often guesses, so a wrong guess must not push out the right name.
     -- MatchingService does the real ranking.
     ORDER BY s.sim + 0.3 * s.sounds + CASE WHEN s.nick THEN 0.5 ELSE 0 END
-             + CASE s.age_ok WHEN true THEN 0.5 WHEN false THEN -0.5 ELSE 0 END DESC, s.pid
+             + CASE WHEN s.age_ok THEN 0.3 ELSE 0 END DESC, s.pid
     LIMIT 100
 $$;
 

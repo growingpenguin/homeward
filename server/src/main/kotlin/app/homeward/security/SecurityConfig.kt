@@ -28,7 +28,9 @@ class SecurityConfig {
                 it.requestMatchers("/api/health", "/error", "/api/shelters", "/api/csrf", "/api/login").permitAll()
                 it.requestMatchers("/api/lead/**").hasRole("LEAD") // coordinators too, through the role hierarchy
                 it.anyRequest().authenticated()
-            }.csrf { it.spa() } // CSRF token in a cookie, sent back by the React app in X-XSRF-TOKEN
+            }
+            // CSRF token in a cookie, sent back by the React app in the X-XSRF-TOKEN header.
+            .csrf { it.spa() }
             .securityContext { it.securityContextRepository(securityContextRepository()) }
             .sessionManagement { it.sessionFixation { f -> f.changeSessionId() } }
             .exceptionHandling { it.authenticationEntryPoint(HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)) }

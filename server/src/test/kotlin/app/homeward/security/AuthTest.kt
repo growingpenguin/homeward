@@ -152,6 +152,17 @@ class AuthTest : IntegrationTest() {
     }
 
     @Test
+    fun `a shift ends 12 hours after login, even with requests coming in`() {
+        val session = MockHttpSession().also { login("Volunteer Alex", "2468", it) }
+        session.setAttribute(IdleLockFilter.LOGIN_AT, Instant.now().minus(Duration.ofHours(13)))
+        session.setAttribute(IdleLockFilter.LAST_ACTIVITY, Instant.now())
+        mvc.get("/api/me") { this.session = session }.andExpect {
+            status { isUnauthorized() }
+            jsonPath("$.expired") { value(true) }
+        }
+    }
+
+    @Test
     fun `logout ends the session`() {
         val session = MockHttpSession().also { login("Volunteer Alex", "2468", it) }
         mvc.post("/api/logout") {

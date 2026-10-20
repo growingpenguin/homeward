@@ -27,6 +27,15 @@ class IdleLockFilter(
             chain.doFilter(request, response)
             return
         }
+        // A shift ends 12 hours after login, even if requests keep coming in the background.
+        val loginAt = session.getAttribute(LOGIN_AT) as? Instant ?: Instant.EPOCH
+        if (Duration.between(loginAt, Instant.now()) > SHIFT) {
+            session.invalidate()
+            response.status = HttpStatus.UNAUTHORIZED.value()
+            response.contentType = MediaType.APPLICATION_JSON_VALUE
+            response.writer.write("""{"expired":true,"message":"Your shift session has ended. Please log in again."}""")
+            return
+        }
         val last = session.getAttribute(LAST_ACTIVITY) as? Instant ?: Instant.EPOCH
         if (Duration.between(last, Instant.now()) > idleAfter) {
             response.status = HttpStatus.UNAUTHORIZED.value()
@@ -40,6 +49,8 @@ class IdleLockFilter(
 
     companion object {
         val IDLE_AFTER: Duration = Duration.ofMinutes(10)
+        val SHIFT: Duration = Duration.ofHours(12)
+        const val LOGIN_AT = "homeward.loginAt"
         const val LAST_ACTIVITY = "homeward.lastActivity"
         const val ACTIVITY_HEADER = "X-Homeward-Activity"
         private val ALWAYS_ALLOWED = setOf("/api/unlock", "/api/logout", "/api/health", "/api/csrf", "/api/shelters", "/api/login")

@@ -133,6 +133,19 @@ ok, app can read persons: 0 rows
 
 The count went from 43 to 73 because every result is now asserted (and counted) instead of printed. `scripts/db-test.sh` (V1 + step tests) still passes: `01_base.sql: 36 passed, 0 failed`.
 
+### 2d. Codex re-review: test runner race and volume leak
+
+**Findings (both P2, verified):**
+- **Startup race:** the runner waited for two successful checks over the local socket, but the `postgres` image first runs a temporary server that also answers there, then shuts it down. On a slow start the tests could begin just before that shutdown and fail at random.
+- **Volume leak:** `docker rm -f` removes the container but not the anonymous database volume the image declares. Confirmed: **10 leftover volumes** from today's runs (all created after `colima start` at 01:16).
+
+**Fix**
+- Readiness is now checked over **TCP** (`psql -h 127.0.0.1` with the test password): the temporary server never listens on TCP, so only the final server can answer. One success is enough.
+- Cleanup is now `docker rm -fv`, which also removes the volume.
+- Removed the 10 leftover volumes by name (each checked to be dangling and created during these runs).
+
+**Result:** `scripts/db-test.sh` → `RESULT: all passed`; `scripts/db-test.sh --draft` → `73 passed, 0 failed`. Docker volumes: **1 before, 1 after two runs** (the remaining one isn't from the tests) → no more leaks.
+
 ## Step 3. Registration (database side)
 
 _Not started._

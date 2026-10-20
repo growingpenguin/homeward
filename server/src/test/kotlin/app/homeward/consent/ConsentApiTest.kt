@@ -350,6 +350,112 @@ class ConsentApiTest : IntegrationTest() {
         mvc.get("/api/answers") { session = riley }.andExpect { jsonPath("$[?(@.requestId == '$req')]") { doesNotExist() } }
     }
 
+    // Everything a searcher-facing reply says: status code, content type and the exact body.
+    private fun rawStatus(
+        s: MockHttpSession,
+        searchId: UUID,
+    ) = mvc
+        .get("/api/searches/$searchId/status") { session = s }
+        .andReturn()
+        .response
+        .let { Triple(it.status, it.contentType, it.contentAsString) }
+
+    @Test
+    fun `no match, pending, declined and blocked get the same status code, content type and raw body`() {
+        val alex = loggedIn(LINCOLN, "Volunteer Alex")
+        val riley = loggedIn(EASTSIDE, "Volunteer Riley")
+        val noMatch = searchFor(alex, person(alex, "Lonely Searcher"), "Nobody Bythisname")
+        val (pending, _) = requested(alex, person(riley, "Perdita Fenwright", ""","approxAge":50"""), "Perdita Fenwright")
+        val (declined, declinedReq) = requested(alex, person(riley, "Ignatius Moorcroft", ""","approxAge":50"""), "Ignatius Moorcroft")
+        post(riley, "/api/requests/$declinedReq/decision", """{"choice":"DECLINE"}""").andExpect { status { isNoContent() } }
+        val hiddenPerson = person(riley, "Thaddeus Quillfeather", ""","approxAge":50""")
+        val (blocked, blockedReq) = requested(alex, hiddenPerson, "Thaddeus Quillfeather")
+        post(riley, "/api/requests/$blockedReq/decision", """{"choice":"CONNECT","contactPlan":"Call the Eastside desk"}""")
+            .andExpect { status { isNoContent() } }
+        post(loggedIn(EASTSIDE, "Lead Morgan"), "/api/lead/flags", """{"personId":"$hiddenPerson","kind":"custody_hold"}""")
+            .andExpect { status { isCreated() } }
+        val replies = listOf(noMatch, pending, declined, blocked).map { rawStatus(alex, it) }
+        assertEquals(1, replies.distinct().size, "hidden states differ: $replies")
+        assertEquals(200, replies.first().first)
+    }
+
+    // All keys in a JSON text (no JSON library needed: every key is written as "name":).
+    private fun keys(json: String) = Regex("\"([^\"]+)\"\\s*:").findAll(json).map { it.groupValues[1] }.toList()
+
+    private val locationWords = listOf("shelter", "homearea", "phone", "address", "deskphone")
+
+    private fun assertNoLocationKeys(
+        json: String,
+        what: String,
+    ) {
+        for (k in keys(json)) {
+            assertFalse(locationWords.any { k.lowercase().contains(it) }, "$what has a location key \"$k\": $json")
+        }
+        // contactPlan is only ever given together with a Connected answer.
+        assertTrue(keys(json).count { it == "contactPlan" } <= Regex("\"type\":\"Connected\"").findAll(json).count(), "$what: $json")
+    }
+
+    @Test
+    fun `no searcher-facing reply has a location key anywhere, and contactPlan only comes with Connected`() {
+        val alex = loggedIn(LINCOLN, "Volunteer Alex")
+        val riley = loggedIn(EASTSIDE, "Volunteer Riley")
+        val casey = loggedIn(WESTFIELD, "Volunteer Casey")
+        val son = person(alex, "Barnaby Wetherspoon", ""","approxAge":45""")
+        val slip = post(alex, "/api/persons/$son/slip").andReturn().response.contentAsString
+        val code = slip.substringAfter("\"code\":\"").substringBefore("\"")
+        val pin = slip.substringAfter("\"pin\":\"").substringBefore("\"")
+        val located = ""","approxAge":60,"homeArea":"Seaview","phone":"555-0123""""
+        val (connectedSearch, connectedReq) = requested(alex, person(riley, "Gwendolyn Ashcombe", located), "Gwendolyn Ashcombe", son)
+        post(riley, "/api/requests/$connectedReq/decision", """{"choice":"CONNECT","contactPlan":"Call the Eastside desk"}""")
+            .andExpect { status { isNoContent() } }
+        val (safeSearch, safeReq) = requested(alex, person(riley, "Evander Pimblett", located), "Evander Pimblett", son)
+        post(riley, "/api/requests/$safeReq/decision", """{"choice":"SAFE"}""").andExpect { status { isNoContent() } }
+        val (pendingSearch, _) = requested(alex, person(riley, "Hortensia Bellweather", located), "Hortensia Bellweather", son)
+        val noMatchSearch = searchFor(alex, son, "Nobody Bythisname")
+
+        for ((label, id) in listOf(
+            "connected" to connectedSearch,
+            "safe" to safeSearch,
+            "pending" to pendingSearch,
+            "no match" to noMatchSearch,
+        )) {
+            assertNoLocationKeys(status(alex, id), "status of the $label search")
+        }
+        val found = post(casey, "/api/lookup", """{"code":"$code","pin":"$pin"}""").andReturn().response.contentAsString
+        assertTrue(found.contains("\"found\":true") && found.contains("Call the Eastside desk"), found)
+        assertNoLocationKeys(found, "lookup reply (found)")
+        val missed = post(casey, "/api/lookup", """{"code":"$code","pin":"0000"}""").andReturn().response.contentAsString
+        assertNoLocationKeys(missed, "lookup reply (not found)")
+        for (leak in listOf("Seaview", "555-0123")) assertFalse(found.contains(leak) || missed.contains(leak))
+    }
+
+    @Test
+    fun `a contact request and every slip check are audited with who did it`() {
+        val alex = loggedIn(LINCOLN, "Volunteer Alex")
+        val riley = loggedIn(EASTSIDE, "Volunteer Riley")
+        val casey = loggedIn(WESTFIELD, "Volunteer Casey")
+        val son = person(alex, "Rupert Hollingsworth", ""","approxAge":45""")
+        val slip = post(alex, "/api/persons/$son/slip").andReturn().response.contentAsString
+        val code = slip.substringAfter("\"code\":\"").substringBefore("\"")
+        val pin = slip.substringAfter("\"pin\":\"").substringBefore("\"")
+        val (_, req) = requested(alex, person(riley, "Clementine Haverford", ""","approxAge":60"""), "Clementine Haverford", son)
+
+        fun audited(
+            action: String,
+            who: String,
+            target: Any,
+        ) = count(
+            "SELECT count(*) FROM audit_log a JOIN staff s ON s.id = a.staff_id " +
+                "WHERE a.action = '$action' AND a.target = '$target' AND s.display_name = '$who'",
+        )
+        assertEquals(1, audited("CONTACT_REQUEST", "Volunteer Alex", req), "contact request audit")
+
+        post(casey, "/api/lookup", """{"code":"$code","pin":"0000"}""")
+        assertEquals(1, audited("CODE_LOOKUP_FAILED", "Volunteer Casey", son), "failed slip check audit")
+        post(casey, "/api/lookup", """{"code":"$code","pin":"$pin"}""")
+        assertEquals(1, audited("CODE_LOOKUP", "Volunteer Casey", son), "successful slip check audit")
+    }
+
     @Test
     fun `protecting someone twice keeps one flag, and a flagged child is not offered for release`() {
         val alex = loggedIn(LINCOLN, "Volunteer Alex")

@@ -120,6 +120,17 @@ class PersonApiTest : IntegrationTest() {
     }
 
     @Test
+    fun `fields we never collect (immigration status, photo, date of birth) are refused with a plain sentence`() {
+        for (field in listOf(""""immigrationStatus":"x"""", """"photo":"data:image/png;base64,AAAA"""", """"dateOfBirth":"1990-01-01"""")) {
+            register(loggedIn(), """{"id":"${UUID.randomUUID()}","preferredName":"Edgar Fairweather",$field}""").andExpect {
+                status { isBadRequest() }
+                jsonPath("$.message") { value("Something in this form isn't allowed. Please check it and try again.") }
+            }
+        }
+        assertEquals(0, count("SELECT count(*) FROM persons WHERE preferred_name = 'Edgar Fairweather'"))
+    }
+
+    @Test
     fun `errors are plain sentences`() {
         val s = loggedIn()
         register(s, """{"id":"${UUID.randomUUID()}","preferredName":"   "}""").andExpect {

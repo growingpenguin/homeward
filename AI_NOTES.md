@@ -80,3 +80,9 @@
 - Kept: the existing 16-slide design, updated live links, migration versions, actual classes/packages and tested behavior. README commands now work independently from the repository root.
 - Changed/rejected: removed claims that the blank paper form or real-person usability testing was complete. The first render dropped emoji-only comparison cells, so those now use explicit text. Corrected the overbroad claim that no searcher reply can contain a location: Connected intentionally carries the agreed contact plan.
 - Learned: validate the PowerPoint structure and inspect its rendered slides; either check alone can miss an unusable result.
+
+## 2026-10-20: Preparing release 1.0.0
+- Asked: continue through the final release after the tests and submission documents.
+- Kept: git-flow; independently reviewed feature PRs into develop, then a release branch with synchronized backend/frontend versions. No production behavior or database migration changed in this release.
+- Checked: 155 SQL checks, the successful 52-test backend result (Gradle reused unchanged test inputs), 26 frontend tests, lint and both builds. Live deployment verification follows the merge and is recorded in the release notes.
+- Learned: distinguish a fresh test execution from a build that correctly reuses an unchanged successful test result, and distinguish a healthy endpoint from proof of which commit is deployed.

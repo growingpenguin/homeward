@@ -30,4 +30,4 @@
 ## Codex continuation (2026-10-20)
 - DB step 6/B6 implemented and independently reviewed: **155 SQL checks / 52 backend tests / 26 frontend tests**, all passing. Both new tests were proven to fail under a deliberate mutation, then restored.
 - Neon V5 app-role permission checks passed; Render and Netlify proxy health returned 200. No new browser run in Codex; the fresh-browser reunion above was performed by Claude.
-- See the Step 6 and B6 implementation logs for evidence. Deck update and release 1.0.0 are the next handoff items; printable blank form and real-person usability sessions remain optional follow-up work.
+- See the Step 6 and B6 implementation logs for evidence. Deck and README update merged in PR #31. Release 1.0.0 is prepared with passing checks; see the release PR/tag for final merge and deployment status. Printable blank form and real-person usability sessions remain follow-up work.

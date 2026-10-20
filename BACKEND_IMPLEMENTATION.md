@@ -272,3 +272,11 @@ Hotfix 0.3.2 points `client/netlify.toml` at this address.
 **Live verification:** Render's deployed v0.3.3 and the Netlify API proxy both returned health 200 with schemaVersion 5. Claude's prior fresh-browser three-desk reunion remains the browser verification; this session added automated API coverage, not another browser run.
 
 **Independent review:** GPT-6-astra checked the new API and SQL tests against implementations and plans; no actionable findings. Claude CLI review hit its session quota.
+
+## Release 1.0.0 package (2026-10-20)
+
+**Branch:** `release/1.0.0`, from reviewed `develop` after PRs #30 (reunion tests) and #31 (submission documents). Backend version and frontend package/lockfile versions now agree at 1.0.0; no runtime logic, dependencies, migrations or deployment configuration changed.
+
+**Final checks:** `scripts/db-test.sh` → 155 passed; JDK 21 `cd server && ./gradlew build` → BUILD SUCCESSFUL, rebuilt `server-1.0.0.jar`, lint passed (52-test successful result reused by Gradle because test inputs were unchanged); frontend lint → 0 errors / 2 existing warnings, `npm test` → 26 passed, `npm run build` → passed (133.07 KB gzip JavaScript). Deck OOXML validation and all-slide visual review passed. Independent release-diff review is recorded in the release PR.
+
+**Release path:** PR into `main`, tag `v1.0.0`, then PR back into `develop`. Render deploy status and live health are checked after merge; those post-merge results belong in the GitHub release notes so this validated source snapshot stays unchanged.

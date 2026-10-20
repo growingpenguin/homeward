@@ -80,6 +80,24 @@ POST /api/logout   204  → login page
 ```
 The 10-minute lock itself wasn't waited out by hand; the server side is tested in B2 (`AuthTest`), the client side by the test above.
 
+**Review** (`/code-review`; all 10 checked against the code and the backend's `security/` package, all real):
+
+| # | Finding | Fix |
+|---|---|---|
+| 1 | `/api/me` answering `401 {locked}` (focus refetch, reload) showed the login instead of the lock screen | `getMe` returns `"locked"`; the app opens on the lock screen; no refetch on focus |
+| 2 | Locking removed the `["me"]` session query too | Lock keeps `me` |
+| 3 | A failed background refresh of `me` replaced the whole app with "no connection" | Only when there's no data yet |
+| 4 | After the free server restarted, unlock got a plain 401 and said "wrong PIN" forever | A 401 without a sentence = session gone → login |
+| 5 | Log out showed the login even when the server never got the request (session still alive for the next person) | Login page only after the server answers; otherwise "Couldn't log out… you are still logged in" |
+| 6 | Logout didn't clear drafts or unsent saves (could post later under someone else) | `clearAllDrafts()` on Log out; unsent saves dropped when the session ends |
+| 7 | A failed `/api/csrf` sent the write without a token → unexplained 403 | Reported as "no answer" (retried for login) |
+| 8 | Typing the PIN on the lock screen counted as activity (re-locked, pinged the server) | Activity ignored while locked |
+| 9 | PIN stayed in the box during retries and in the mutation cache after | Box emptied on submit, mutation reset when settled. Not fixed: a retry after a 504 that the server did count can add one more failure toward the 15-minute lockout (rare; noted) |
+| 10 | Extra `/api/health` request on the login page | Removed: the shelter list wakes the backend |
+
+**After the fixes:** `npm run lint` 0 errors · `npm test` **10 passed** (new: reload onto a locked server opens the lock screen and the right PIN opens the app · unlock after the server forgot the session goes to the login · a failed log out keeps you logged in and says so) · `npm run build` passed.
+**Real run again** (Volunteer Riley, Eastside): `GET /api/me 401` → `POST /api/login 200` → Home → `GET /api/csrf 200` (login had cleared the cookie) → `POST /api/logout 204` → login page.
+
 ## F2–F4
 
 _Not started._

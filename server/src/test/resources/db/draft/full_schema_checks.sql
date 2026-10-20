@@ -35,30 +35,36 @@ EXCEPTION WHEN others THEN
   RETURN 'ok, refused: ' || label || ' -> ' || SQLERRM;
 END $$;
 GRANT EXECUTE ON FUNCTION expect_fail(text, text) TO homeward_app, homeward_maint;
+
+-- assert_true(condition, label): 'ok, <label>' when true, 'FAIL: <label>' when false or NULL. Every result is asserted.
+CREATE FUNCTION assert_true(ok boolean, label text) RETURNS text LANGUAGE sql IMMUTABLE AS $$
+  SELECT CASE WHEN ok THEN 'ok, ' || label ELSE 'FAIL: ' || label END
+$$;
+GRANT EXECUTE ON FUNCTION assert_true(boolean, text) TO homeward_app, homeward_maint;
 \pset tuples_only on
 
 \echo '=== T1 default visibility'
-SELECT 'visibility = ' || visibility FROM persons WHERE id = '00000000-0000-0000-0000-000000000001';
+SELECT assert_true(visibility = 'ask', 'new person defaults to ask (got ' || visibility || ')') FROM persons WHERE id = '00000000-0000-0000-0000-000000000001';
 \echo '=== T2 same UUID twice'
 INSERT INTO persons (id, shelter_id, preferred_name, entered_by) VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a1', 'Catherine Rodriguez', '00000000-0000-0000-0000-0000000000b1') ON CONFLICT (id) DO NOTHING;
-SELECT 'persons with id 1: ' || count(*) FROM persons WHERE id = '00000000-0000-0000-0000-000000000001';
+SELECT assert_true(count(*) = 1, 'same id sent twice is stored once') FROM persons WHERE id = '00000000-0000-0000-0000-000000000001';
 
 \echo '=== T3-T5, T12-13 matching'
-SELECT 'Katherine Rodrigez -> ' || p.preferred_name || ' sim=' || round(f.name_similarity::numeric,2) || ' sound=' || f.words_sound_alike || ' age_close=' || f.age_close FROM find_candidates('Katherine Rodrigez', 75, 85) f JOIN persons p ON p.id = f.person_id;
-SELECT 'Bill Price -> ' || p.preferred_name || ' nickname=' || f.nickname_match FROM find_candidates('Bill Price', NULL, NULL) f JOIN persons p ON p.id = f.person_id;
-SELECT 'John Do -> ' || p.preferred_name || ' sound=' || f.words_sound_alike FROM find_candidates('John Do', NULL, NULL) f JOIN persons p ON p.id = f.person_id;
-SELECT 'jose perez -> ' || p.preferred_name FROM find_candidates('jose perez', NULL, NULL) f JOIN persons p ON p.id = f.person_id;
-SELECT 'Pepe Perez -> ' || p.preferred_name || ' nickname=' || f.nickname_match FROM find_candidates('Pepe Perez', NULL, NULL) f JOIN persons p ON p.id = f.person_id;
-SELECT 'one-sided age (min 55 only) for Jose 60 -> age_close=' || f.age_close FROM find_candidates('Jose Perez', 55, NULL) f;
+SELECT assert_true(EXISTS (SELECT 1 FROM find_candidates('Katherine Rodrigez', 75, 85) f JOIN persons p ON p.id = f.person_id WHERE p.preferred_name = 'Catherine Rodriguez' AND f.name_similarity > 0.5 AND f.words_sound_alike >= 1 AND f.age_close), 'Katherine Rodrigez (75-85) finds Catherine Rodriguez by spelling, sound and age');
+SELECT assert_true(EXISTS (SELECT 1 FROM find_candidates('Bill Price', NULL, NULL) f JOIN persons p ON p.id = f.person_id WHERE p.preferred_name = 'William Price' AND f.nickname_match), 'Bill Price finds William Price by nickname');
+SELECT assert_true(EXISTS (SELECT 1 FROM find_candidates('John Do', NULL, NULL) f JOIN persons p ON p.id = f.person_id WHERE p.preferred_name = 'Jon Doe' AND f.words_sound_alike = 2), 'John Do finds Jon Doe, both words sound alike');
+SELECT assert_true(EXISTS (SELECT 1 FROM find_candidates('jose perez', NULL, NULL) f JOIN persons p ON p.id = f.person_id WHERE p.preferred_name = 'José Pérez'), 'jose perez finds José Pérez (accents ignored)');
+SELECT assert_true(EXISTS (SELECT 1 FROM find_candidates('Pepe Perez', NULL, NULL) f JOIN persons p ON p.id = f.person_id WHERE p.preferred_name = 'José Pérez' AND f.nickname_match), 'Pepe Perez finds José Pérez by nickname');
+SELECT assert_true((SELECT f.age_close FROM find_candidates('Jose Perez', 55, NULL) f WHERE f.person_id = '00000000-0000-0000-0000-000000000008') IS TRUE, 'one-sided age range (55+) is close for José, 60');
 \echo '=== T6 hidden adult and hidden child: 0 results each'
-SELECT 'Daniel Price (hidden adult): ' || count(*) FROM find_candidates('Daniel Price', NULL, NULL) f WHERE f.person_id = '00000000-0000-0000-0000-000000000004';
-SELECT 'Leo Park (hidden child): ' || count(*) FROM find_candidates('Leo Park', NULL, NULL) f WHERE f.person_id = '00000000-0000-0000-0000-000000000007';
+SELECT assert_true((SELECT count(*) FROM find_candidates('Daniel Price', NULL, NULL) f WHERE f.person_id = '00000000-0000-0000-0000-000000000004') = 0, 'hidden adult (Daniel Price) is never found');
+SELECT assert_true((SELECT count(*) FROM find_candidates('Leo Park', NULL, NULL) f WHERE f.person_id = '00000000-0000-0000-0000-000000000007') = 0, 'hidden child (Leo Park) is never found');
 \echo '=== T7 view columns (no shelter_id, home_area, phone, description)'
-SELECT string_agg(column_name, ', ' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_name = 'search_candidates';
-SELECT 'security_barrier: ' || coalesce(array_to_string(reloptions, ','), 'none') FROM pg_class WHERE relname = 'search_candidates';
+SELECT assert_true(NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'search_candidates' AND column_name IN ('shelter_id', 'home_area', 'phone', 'description', 'desk_phone', 'paper_ref')) AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'search_candidates' AND column_name = 'preferred_name'), 'search_candidates has no shelter, home area, phone or description column');
+SELECT assert_true(EXISTS (SELECT 1 FROM pg_class WHERE relname = 'search_candidates' AND 'security_barrier=true' = ANY (reloptions)), 'search_candidates is a security_barrier view');
 
 \echo '=== T8 who counts as a child'
-SELECT preferred_name || ' (age ' || coalesce(approx_age::text, '?') || ', is_minor ' || coalesce(is_minor::text, '?') || ') -> child=' || treated_as_minor(p) FROM persons p WHERE id IN ('00000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000005','00000000-0000-0000-0000-000000000006') ORDER BY 1;
+SELECT assert_true(treated_as_minor(p) = e.child, p.preferred_name || ' (age ' || coalesce(p.approx_age::text, '?') || ', is_minor ' || coalesce(p.is_minor::text, '?') || ') counts as child=' || e.child) FROM persons p JOIN (VALUES ('00000000-0000-0000-0000-000000000002'::uuid, false), ('00000000-0000-0000-0000-000000000003'::uuid, true), ('00000000-0000-0000-0000-000000000005'::uuid, true), ('00000000-0000-0000-0000-000000000006'::uuid, false)) AS e(id, child) ON e.id = p.id ORDER BY p.preferred_name;
 SELECT expect_fail($$UPDATE persons SET is_minor = false WHERE id = '00000000-0000-0000-0000-000000000003'$$, 'mark a 9-year-old as adult');
 SELECT expect_fail($$UPDATE persons SET is_minor = true WHERE id = '00000000-0000-0000-0000-000000000002'$$, 'mark a 40-year-old as minor');
 
@@ -90,11 +96,11 @@ INSERT INTO contact_requests (search_id, person_id, state) VALUES ('00000000-000
 INSERT INTO safety_flags (person_id, kind, created_by) VALUES ('00000000-0000-0000-0000-000000000002', 'do_not_disclose', '00000000-0000-0000-0000-0000000000b2');
 SELECT expect_fail($$UPDATE contact_requests SET state = 'connected', contact_plan = 'x' WHERE search_id = '00000000-0000-0000-0000-0000000000c2'$$, 'connect a protected person');
 SELECT expect_fail($$UPDATE contact_requests SET state = 'safe_only' WHERE search_id = '00000000-0000-0000-0000-0000000000c2'$$, 'safe_only for a protected person');
-SELECT 'protected person in view: ' || count(*) FROM search_candidates WHERE id = '00000000-0000-0000-0000-000000000002';
+SELECT assert_true(count(*) = 0, 'protected (do_not_disclose) person is not in search_candidates') FROM search_candidates WHERE id = '00000000-0000-0000-0000-000000000002';
 -- flag added AFTER connect: Mia's connected request
 INSERT INTO safety_flags (person_id, kind, created_by) VALUES ('00000000-0000-0000-0000-000000000003', 'custody_hold', '00000000-0000-0000-0000-0000000000b2');
-SELECT 'Mia request after custody_hold: ' || state FROM contact_requests WHERE person_id = '00000000-0000-0000-0000-000000000003';
-SELECT 'custody_hold child still matchable for the lead: ' || count(*) FROM search_candidates WHERE id = '00000000-0000-0000-0000-000000000003';
+SELECT assert_true(state = 'blocked', 'custody_hold added after Connect switches the request to blocked (got ' || state || ')') FROM contact_requests WHERE person_id = '00000000-0000-0000-0000-000000000003';
+SELECT assert_true(count(*) = 1, 'custody_hold child is still matchable for the lead') FROM search_candidates WHERE id = '00000000-0000-0000-0000-000000000003';
 -- flag on the SEARCHER (Tom is suspected): his search for Catherine can't connect
 INSERT INTO contact_requests (search_id, person_id, state) VALUES ('00000000-0000-0000-0000-0000000000c3', '00000000-0000-0000-0000-000000000001', 'pending');
 INSERT INTO safety_flags (person_id, kind, created_by) VALUES ('00000000-0000-0000-0000-000000000009', 'suspected_abuser', '00000000-0000-0000-0000-0000000000b2');
@@ -104,7 +110,7 @@ SELECT expect_fail($$INSERT INTO safety_flags (search_id, kind, created_by) VALU
 
 \echo '=== T14 history'
 UPDATE persons SET approx_age = 81, updated_by = '00000000-0000-0000-0000-0000000000b2' WHERE id = '00000000-0000-0000-0000-000000000001';
-SELECT 'history: age before=' || (before->>'approx_age') || ', changed_by set=' || (changed_by IS NOT NULL) FROM person_history WHERE person_id = '00000000-0000-0000-0000-000000000001';
+SELECT assert_true(before->>'approx_age' = '80' AND changed_by IS NOT NULL, 'history kept the age before (80) and who changed it') FROM person_history WHERE person_id = '00000000-0000-0000-0000-000000000001';
 
 \echo '=== T15 codes'
 INSERT INTO reunion_codes (code, person_id, pin_hash) VALUES ('HW-7K3P', '00000000-0000-0000-0000-000000000001', :H);
@@ -121,13 +127,13 @@ SELECT expect_fail($$INSERT INTO audit_log (staff_id, action) VALUES ('00000000-
 SELECT expect_fail($$DELETE FROM persons$$, 'app deletes persons');
 SELECT expect_fail($$INSERT INTO person_history (person_id, before) VALUES ('00000000-0000-0000-0000-000000000001', '{}')$$, 'app writes fake history');
 UPDATE persons SET search_names = 'fake name' WHERE id = '00000000-0000-0000-0000-000000000005';
-SELECT 'app sets search_names by hand -> stored: ' || search_names FROM persons WHERE id = '00000000-0000-0000-0000-000000000005';
-SELECT 'app edit still wrote history: ' || count(*) FROM person_history WHERE person_id = '00000000-0000-0000-0000-000000000005';
+SELECT assert_true(search_names = 'jon doe', 'search_names set by hand was overwritten by the trigger (got ' || search_names || ')') FROM persons WHERE id = '00000000-0000-0000-0000-000000000005';
+SELECT assert_true(count(*) >= 1, 'the app''s edit still wrote history') FROM person_history WHERE person_id = '00000000-0000-0000-0000-000000000005';
 SELECT expect_fail($$UPDATE safety_flags SET kind = 'custody_hold' WHERE person_id = '00000000-0000-0000-0000-000000000002'$$, 'app rewrites a flag kind');
 SELECT expect_fail($$UPDATE safety_flags SET cleared_at = now() WHERE person_id = '00000000-0000-0000-0000-000000000002'$$, 'app lifts a flag without saying who');
 UPDATE safety_flags SET cleared_at = now(), cleared_by = '00000000-0000-0000-0000-0000000000b2' WHERE person_id = '00000000-0000-0000-0000-000000000002';
 SELECT 'ok, allowed: app lifts a flag with cleared_by';
-SELECT 'app can match: ' || count(*) FROM find_candidates('Mia', NULL, NULL);
+SELECT assert_true(count(*) >= 1, 'the app user can run find_candidates') FROM find_candidates('Mia', NULL, NULL);
 RESET ROLE;
 
 \echo '=== T17 retention user'
@@ -136,8 +142,8 @@ DELETE FROM persons WHERE id = '00000000-0000-0000-0000-000000000001';
 SELECT 'ok, allowed: maint deletes a person';
 SELECT expect_fail($$DELETE FROM audit_log$$, 'maint deletes audit_log');
 RESET ROLE;
-SELECT 'history left for deleted person: ' || count(*) FROM person_history WHERE person_id = '00000000-0000-0000-0000-000000000001';
-SELECT 'audit rows kept: ' || count(*) FROM audit_log;
+SELECT assert_true(count(*) = 0, 'history of the deleted person is gone too') FROM person_history WHERE person_id = '00000000-0000-0000-0000-000000000001';
+SELECT assert_true(count(*) = 1, 'audit entries are kept after the retention delete') FROM audit_log;
 
 \echo '=== T18 final attacks'
 INSERT INTO contact_requests (search_id, person_id, state) VALUES ('00000000-0000-0000-0000-0000000000c4', '00000000-0000-0000-0000-000000000008', 'pending');
@@ -153,7 +159,7 @@ UPDATE persons SET preferred_name = 'Jon Doe', updated_by = '00000000-0000-0000-
 SELECT 'ok, app edit still writes history (trigger works without EXECUTE grant): ' || count(*) FROM person_history WHERE person_id = '00000000-0000-0000-0000-000000000005';
 RESET ROLE;
 \echo '=== T19 ranking uses all signals: Pepe Perez -> top result'
-SELECT 'top for "Pepe Perez": ' || p.preferred_name FROM find_candidates('Pepe Perez', NULL, NULL) f JOIN persons p ON p.id = f.person_id LIMIT 1;
+SELECT assert_true((SELECT f.person_id FROM find_candidates('Pepe Perez', NULL, NULL) f LIMIT 1) = '00000000-0000-0000-0000-000000000008', 'Pepe Perez: the nickname match (José Pérez) comes first');
 
 \echo '=== T20 a child who is SEARCHING also needs a lead'
 INSERT INTO persons (id, shelter_id, preferred_name, approx_age, entered_by) VALUES
@@ -171,7 +177,7 @@ SELECT expect_fail($$UPDATE searches SET searcher_person_id = '00000000-0000-000
 -- a search with no searcher yet that already got a "Connect" from an adult (Grace)
 INSERT INTO searches (id, shelter_id, sought_names, entered_by) VALUES ('00000000-0000-0000-0000-0000000000c7', '00000000-0000-0000-0000-0000000000a1', '{Grace Lee}', '00000000-0000-0000-0000-0000000000b1');
 INSERT INTO contact_requests (search_id, person_id, state, contact_plan) VALUES ('00000000-0000-0000-0000-0000000000c7', '00000000-0000-0000-0000-000000000011', 'connected', 'Call the North High desk');
-SELECT 'state before: ' || state FROM contact_requests WHERE search_id = '00000000-0000-0000-0000-0000000000c7';
+SELECT assert_true(state = 'connected', 'search c7 is connected before the swap attempt') FROM contact_requests WHERE search_id = '00000000-0000-0000-0000-0000000000c7';
 SELECT expect_fail($$UPDATE searches SET searcher_person_id = '00000000-0000-0000-0000-000000000010' WHERE id = '00000000-0000-0000-0000-0000000000c7'$$, 'attach a child searcher to a search that already got a "Connect"');
 INSERT INTO searches (id, shelter_id, sought_names, entered_by) VALUES ('00000000-0000-0000-0000-0000000000c6', '00000000-0000-0000-0000-0000000000a2', '{Rosa Diaz}', '00000000-0000-0000-0000-0000000000b1');
 UPDATE searches SET searcher_person_id = '00000000-0000-0000-0000-000000000009' WHERE id = '00000000-0000-0000-0000-0000000000c6';
@@ -182,9 +188,9 @@ INSERT INTO persons (id, shelter_id, preferred_name, approx_age, entered_by) VAL
   ('00000000-0000-0000-0000-000000000012', '00000000-0000-0000-0000-0000000000a1', 'Ben Ortiz', 35, '00000000-0000-0000-0000-0000000000b1');
 INSERT INTO searches (id, shelter_id, sought_names, entered_by) VALUES ('00000000-0000-0000-0000-0000000000c8', '00000000-0000-0000-0000-0000000000a2', '{Ben Ortiz}', '00000000-0000-0000-0000-0000000000b1');
 INSERT INTO contact_requests (search_id, person_id, state, contact_plan) VALUES ('00000000-0000-0000-0000-0000000000c8', '00000000-0000-0000-0000-000000000012', 'connected', 'Call the North High desk');
-SELECT 'Ben (35) connected, no lead: ' || state FROM contact_requests WHERE search_id = '00000000-0000-0000-0000-0000000000c8';
+SELECT assert_true(state = 'connected', 'Ben (35) is connected without a lead before the correction') FROM contact_requests WHERE search_id = '00000000-0000-0000-0000-0000000000c8';
 UPDATE persons SET approx_age = 14, updated_by = '00000000-0000-0000-0000-0000000000b1' WHERE id = '00000000-0000-0000-0000-000000000012';
-SELECT 'after correcting Ben to 14: ' || state FROM contact_requests WHERE search_id = '00000000-0000-0000-0000-0000000000c8';
+SELECT assert_true(state = 'pending', 'correcting Ben to 14 sends the unapproved Connect back to pending (got ' || state || ')') FROM contact_requests WHERE search_id = '00000000-0000-0000-0000-0000000000c8';
 -- Sam (10) -> Grace already has a lead sign-off; correcting Grace to 15 keeps it connected
 UPDATE persons SET approx_age = 15, updated_by = '00000000-0000-0000-0000-0000000000b1' WHERE id = '00000000-0000-0000-0000-000000000011';
-SELECT 'Sam -> Grace (lead-approved) after correcting Grace to 15: ' || state FROM contact_requests WHERE search_id = '00000000-0000-0000-0000-0000000000c5';
+SELECT assert_true(state = 'connected', 'a lead-approved Connect stays connected after correcting Grace to 15 (got ' || state || ')') FROM contact_requests WHERE search_id = '00000000-0000-0000-0000-0000000000c5';

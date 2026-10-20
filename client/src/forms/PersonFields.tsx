@@ -96,7 +96,6 @@ export function PersonFields({ step, form }: { step: string; form: PersonForm })
     case "privacy":
       return (
         <div className="stack">
-          <SayThis>{t.steps.privacy}</SayThis>
           <Controller
             control={control}
             name="visibility"

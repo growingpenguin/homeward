@@ -252,6 +252,8 @@ Result after fixes: `02_seed.sql: 5 passed`, `03_registration.sql: 18 passed`, `
 
 **After the fixes:** `04_matching.sql` **39 passed**; `scripts/db-test.sh` all passed.
 
+**On Neon** (after step 5 was merged): `scripts/db-migrate.sh migrate` → `Successfully applied 2 migrations … now at version v4`; `scripts/db-seed.sh` → 205 people (200 seeded + 5 fictional ones registered in earlier runs). `find_candidates` as `homeward_app`, timed with `\timing` from this laptop: **35 ms** for "Maria Garsia" 30–50 (17 rows) and **35 ms** for "Jose Perez" (23 rows), network round trip included. Fine for the demo; at ~400k people the security-barrier view's likely full scan (review #6) needs measuring again, noted in the README tradeoffs.
+
 ## Step 5. Consent and protection (`V4__consent_and_protection.sql`)
 
 **Branch:** `feature/db-consent` (on top of `feature/db-matching`).

@@ -270,5 +270,7 @@ class PersonApiTest : IntegrationTest() {
                 .andReturn()
                 .response.contentAsString
         assertTrue(api.contains("RegisterPersonRequest") && !api.contains("\"ssn\""))
+        // isMinor appears once per type, never also as a stray "minor" (from the Kotlin getter's name).
+        assertTrue(api.contains("\"isMinor\"") && !api.contains("\"minor\""), "stray minor field in the OpenAPI description")
     }
 }

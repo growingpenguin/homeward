@@ -25,7 +25,7 @@ data class RegisterPersonRequest(
     @field:Min(0, message = "Please check the age.") @field:Max(120, message = "Please check the age.")
     val approxAge: Int? = null, // null = unknown (0 is a real age: a baby)
     val ageIsEstimate: Boolean = true,
-    @JsonProperty("isMinor")
+    @get:JsonProperty("isMinor") @param:JsonProperty("isMinor")
     val isMinor: Boolean? = null, // null = not sure
     val unaccompanied: Boolean = false,
     @field:Size(max = 200, message = "Please shorten the home area.") val homeArea: String? = null,
@@ -56,7 +56,7 @@ data class EditPersonRequest(
     @field:Min(0, message = "Please check the age.") @field:Max(120, message = "Please check the age.")
     val approxAge: Int? = null,
     val ageIsEstimate: Boolean = true,
-    @JsonProperty("isMinor")
+    @get:JsonProperty("isMinor") @param:JsonProperty("isMinor")
     val isMinor: Boolean? = null,
     // Required on edit (no defaults): a field left out must never quietly reset a safety choice,
     // e.g. "hidden" back to "ask" or an unaccompanied child back to accompanied.
@@ -77,7 +77,7 @@ data class PersonView(
     val otherNames: List<String>,
     val approxAge: Int?,
     val ageIsEstimate: Boolean,
-    @JsonProperty("isMinor")
+    @get:JsonProperty("isMinor") @param:JsonProperty("isMinor")
     val isMinor: Boolean?,
     val treatedAsMinor: Boolean,
     val unaccompanied: Boolean,

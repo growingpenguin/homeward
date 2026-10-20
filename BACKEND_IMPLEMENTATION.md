@@ -174,6 +174,39 @@ unknown field "ssn"                    → {"message":"Something in this form is
 
 **After the fixes:** `./gradlew build` → **31 tests, 0 failed**; `scripts/db-test.sh` → all passed.
 
-## B4–B6
+## B4. Matching API
+
+**Branch:** `feature/backend-matching` · planned in plan mode with DB steps 4–5, B5 and F3–F4.
+
+**Done** (`match/` package):
+- `POST /api/searches` `{id, searcherPersonId, soughtNames, ageMin, ageMax, relationship, lastKnownPlace}`: the person searching is registered first with the existing `POST /api/persons` (same id rules, slip, privacy choice), and must be at this desk. Re-sent form (same id) → 200, new → 201. Matching runs, audit `SEARCH`.
+- `GET /api/searches/{id}` ("Check again"): own desk only (else 404), runs matching again so someone registered later still gets suggested; never the same person twice (UNIQUE).
+- `POST /api/searches/{id}/requests` `{personId, message}`: only a person this search suggested **and** matching may still find; marks the suggestion confirmed, saves the message on the search, makes a `pending` contact request (a re-send returns the same one), audit `CONTACT_REQUEST`.
+- `MatchingService`: `0.6 × spelling + 0.15 per sound-alike word (max 2) + 0.2 nickname + 0.1 right age − 0.15 wrong age`, suggestions from 0.35, top 10; reasons in plain words ("name spelled like…", "name sounds like…", "a nickname matches…", "age fits (about 80)", "a child: a lead decides before anything is shared"). Never suggests the searcher to themselves.
+- `MatchCard` has **no** shelter, home area, phone, description or paper fields, and cards are read **through** `search_candidates`, so someone hidden or protected after being suggested drops out.
+- `isMinor` named once in the OpenAPI (`@get:`/`@param:JsonProperty`), the F0 note.
+
+**Changed from the plan:** the searcher is registered with the existing person endpoint instead of inside the search request (one registration path, same rules).
+
+**Tests:** `./gradlew build` → **36 tests, 0 failed** (5 new in `SearchApiTest`): a misspelling at another shelter is found with reasons, and the reply contains none of `Eastside`, `Seaview`, the phone, the desk phone, `shelter`, `homeArea`, `phone` · hidden people never suggested, nor the searcher themselves · "Check again" finds a paper form typed in later, once · another desk gets 404 · a request only to a suggested match, `pending`, stored once, both sends audited · the searcher must be registered at this desk · OpenAPI has `isMinor` and no stray `minor`.
+
+**Review** (`/code-review`; each finding checked against the code):
+
+| # | Finding | Result |
+|---|---|---|
+| 1 | A search by (or about) a **flagged** searcher still got suggestions and could send requests | **Fixed:** a flag on the search or the searcher → the same empty list as "no match", requests refused; test |
+| 2 | People under `custody_hold` / `suspected_abuser` were still suggested (the view only hides `do_not_disclose`) | **Fixed:** anyone with an active flag is left off the cards (the view still has them, for leads); test |
+| 3 | A nickname alone ("Bill" → William) scored under the threshold | **Fixed:** nickname +0.3, threshold 0.3; unit check + API test |
+| 4 | A requested card disappeared when the person hid later, but stayed when they declined (hiding vs declining told apart) | **Fixed:** a requested card always stays, re-sending always answers 201; test |
+| 5 | The message was stored once per search, so a 2nd request or a re-send changed what the 1st person is read | **Fixed:** `V5__request_message.sql`, message on the request, written once (no UPDATE grant); DB test |
+| 6 | Someone hidden between the read and the insert made the whole search fail | **Fixed:** the insert skips anyone no longer in the view |
+| 7 | Missing tests (flags, nickname, re-send, …) | **Fixed:** 4 new tests |
+| 8 | Opening a search re-ran matching and wrote audit rows on every GET | **Fixed:** `GET` only reads; `POST /api/searches/{id}/check` runs it again |
+| 9 | CLAUDE.md's layout names one place for visibility; cards are decided in `SearchRepo` | **Noted:** cards are staff-facing (the volunteer at the desk); what a **searcher** sees is only ever `SearcherStatus` from `VisibilityService` (B5). `SearchRepo.shown` is the one place for cards |
+| 10 | A re-send with a changed form silently returned the old search | **Fixed:** same id + changed form → 409 "already saved, start a new search"; test |
+
+**After the fixes:** `./gradlew build` → **40 tests, 0 failed**; `scripts/db-test.sh` all passed (05: 37).
+
+## B5–B6
 
 _Not started (re-planned in plan mode when reached)._

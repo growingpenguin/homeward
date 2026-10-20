@@ -23,7 +23,7 @@ The people using it are **not experts**: tired volunteers at 2 a.m., on whatever
 
 | Option | Good at | Weak for *this* problem |
 | --- | --- | --- |
-| **Web app, run by volunteers** ✅ | Works on any laptop or tablet the shelter has; nothing to install; one link; can print slips and forms | Needs a browser and some connection |
+| **Web app, run by volunteers** ✅ | Works on any laptop or tablet the shelter has; nothing to install; one link; can print slips | Needs a browser and some connection |
 | Native phone app | Offline storage, device features | **Survivors don't have phones**; installing from an app store in a disaster is slow; printing is harder |
 | Kiosk survivors use themselves | No volunteer needed | Many can't use it (no glasses, stress, language, reading), and nobody is there for consent decisions |
 
@@ -43,7 +43,7 @@ The people using it are **not experts**: tired volunteers at 2 a.m., on whatever
 | --- | --- | --- | --- |
 | Opens instantly even while the backend is asleep | ✅ static files | 🟡 its own server can sleep too | ✅ static files |
 | Mature libraries for accessible, step-by-step forms | ✅ | ✅ | 🟡 |
-| Small download on slow Wi-Fi | 🟡 code-split per page | 🟡 | ✅ |
+| Small download on slow Wi-Fi | 🟡 one bundle (code-splitting per page is not built (planned)) | 🟡 | ✅ |
 
 React + Vite wins the first two rows, which decide whether a volunteer can use it at all. The download size is handled by loading each page only when it's opened.
 
@@ -73,8 +73,8 @@ The users aren't experts, so these rules come first and every screen is checked 
 | **Register** ("Someone is here"): one question per step | **Batch entry** merged into Register: *"Copying from paper forms"* is switched on once, before the first form, and adds one step | One form to learn instead of two |
 | **Search** ("Someone is looking for family") | "Who were you with?" household questions | Not in the database yet; adds questions without helping the first match |
 | **Check a code**: type it or tap the big keys | — | The main tool for people with no phone |
-| **Answers waiting**: what a person decides about a request | Lead tools reduced to one page (matches to confirm for children, flags, lost slips) | Leads are tired too |
-| Printable slip + printable blank paper form | Undo history screen, offline mode, Spanish | Moved to **Later**, each with a reason |
+| **Answers waiting**: what a person decides about a request | Lead tools reduced to one page (children to release) plus two lead-only buttons on a person's slip page: protect (the UI sets only `do_not_disclose`; other flag kinds go through the API) and reprint a lost slip | Leads are tired too |
+| Printable slip | Printable blank paper form (not built (planned)), undo history screen, offline mode, Spanish | Moved to **Later**, each with a reason |
 
 ---
 
@@ -99,14 +99,14 @@ The constraints come first, then the screen and the code that handle each one. O
 | 2 | Some people don't want to be found | `VisibilityChoice`, Answers waiting, `SearcherView` |
 | 3 | Many people have no phone | `CodeKeypad`, printable slip |
 | 4 | Many people have no ID | `registerSchema` (only a name is required) |
-| 5 | Each shelter keeps its own list, some on paper | Paper mode, printable blank form, `toRegisterRequest` |
+| 5 | Each shelter keeps its own list, some on paper | Paper mode (a printable blank form is not built (planned)), `toRegisterRequest` |
 | 6 | Bad Wi-Fi and a free server that sleeps | `queryClient`, `ConnectionBanner`, `useDraft` |
 | 7 | Shared laptops, left on desks | `useIdleLock`, `AppShell`, `clearAllDrafts` |
 
 ### 1. "Volunteers are non-technical and exhausted"
 
 - **`strings.ts`** holds every word the app shows or reads out to screen readers. I can read the whole app's text in one file and remove jargon, and it's ready for Spanish later.
-- **Home has just 3 big buttons**: *Someone is here*, *Someone is looking for family*, *Check a code*. A badge shows answers waiting and children without an adult.
+- **Home has just 3 big buttons**: *Someone is here*, *Someone is looking for family*, *Check a code*. A badge shows the number of answers waiting. Children without an adult are listed on the lead page, not on Home.
 - **`BigButton`** is the one look for every main action: big, full width on a tablet, words instead of icons. It's `type="button"` unless it's the save button, so "Back" can never save a form by accident.
 - **`SayThis`** shows the exact words to read out on every screen, so a volunteer never has to make up how to explain privacy to a frightened person.
 - **One question per step**, with "Step 2 of 5" at the top, and every saved person has an **Edit** button for fixing a typo afterwards.
@@ -220,7 +220,7 @@ export function SearcherView({ status, onDone }: { status: SearcherStatus | unde
 - **Everyone registered gets a printed slip**, searchers included, with a code, a PIN and the shelter desk phone, so they can check for messages at any desk without a phone.
 - **`CodeKeypad`** has a normal text box (type or paste "hw-7k3p") **and** big keys for a tablet. Either way, only characters a code can contain are kept, so "0 or O?" never comes up. "HW" is only removed when it's clearly the prefix, because H and W can also be part of a code.
 - The volunteer then types the PIN; a wrong code and a wrong PIN get the same answer, and after 5 wrong PINs the code is locked for 15 minutes (backend).
-- **A lost slip** is reissued by a lead from the Lead page; if the printer is broken, the volunteer writes the code and PIN on paper by hand.
+- **A lost slip** is reissued by a lead on that person's slip page (`/persons/:id/slip`), reached for example from the lead page's list of unaccompanied children. There is no lookup by name. If the printer is broken, the volunteer writes the code and PIN on paper by hand.
 - The phone field is optional and says so, and contact plans use desk phones: *"Call the Westfield desk and ask for Rosa."*
 
 ```tsx
@@ -415,8 +415,8 @@ export function registerSteps(fromPaper: boolean): Step[] {
 
 - **There's no separate batch-entry screen.** Before the first form, the volunteer switches on *"Copying from paper forms"*. It stays on for the whole stack and adds one first step: where it is on the paper, the date written on it (required; if there's none, the day the forms were collected), and the slip code if a pre-printed slip was handed out.
 - The paper date stays filled in between forms, and Enter moves to the next text box, so copying a stack of forms is fast.
-- **A printable blank form** has the same questions in the same order as the app, so copying from paper is a straight line down the page.
-- **A pre-printed slip** is handed out with the paper form and starts working once its code is typed in with that form; the slip says so in plain words.
+- **A printable blank form** (not built (planned)) would have the same questions in the same order as the app, so copying from paper is a straight line down the page.
+- **A pre-printed slip** is handed out with the paper form and starts working once its code is typed in with that form; the slip says so in plain words. Only attaching a pre-printed code exists; a generator of blank slips or code sheets is not built (planned).
 - **`toRegisterRequest`** is the one place the form becomes the backend's request. The record's ID is made once in the browser when the form opens and kept in the draft, so a re-send after a Wi-Fi drop is ignored by the database instead of creating a second person.
 
 Code (type-checked, left out here for length): `forms/toRequest.ts`.
@@ -587,11 +587,11 @@ client/src/
   api/http.ts              HttpError (status code, for retry decisions)
   api/queryClient.ts       retries for bad Wi-Fi; searcher status always fresh
   strings.ts               every word the app shows or reads out
-  pages/                   Login, Home, Register, Search, CheckCode, Answers, Lead, Print
+  pages/                   Login, Home, Register, Slip, Edit, Search, CheckCode, Answers, Lead
   components/              AppShell, BigButton, SayThis, VisibilityChoice, SearcherView, CodeKeypad, ConnectionBanner
   forms/                   registerSchema.ts (what the form accepts), toRequest.ts (form → backend request)
   hooks/                   useDraft, useIdleLock
-  styles/                  tokens.css (sizes, contrast), print.css (slip and blank form)
+  styles/                  tokens.css (sizes, contrast), print.css (slip; a blank form is not built (planned))
 ```
 
 ---
@@ -604,6 +604,7 @@ client/src/
 | **Undo history screen** | Everyday mistakes are fixed with the Edit button; the database keeps a snapshot of every edit for a lead to look at if something goes badly wrong |
 | **Spanish and other languages** | All text is already in `strings.ts`, so adding a language is a translation job, not a code change. Until then, when a person doesn't speak English, the volunteer asks the lead for an interpreter before any consent question |
 | **Household links** ("Who were you with?") | Needs a database change; one person at a time works first |
+| **Printable blank paper form** | Copying from paper already works through paper mode; the blank form is a nice extra |
 | **Self-service "I'm safe" page** for survivors | Needs the same privacy rules made public-safe; volunteers come first |
 
 ---
@@ -614,6 +615,6 @@ client/src/
 | --- | --- |
 | **Fewer features** than a full disaster system | The features that are there are easy to use without training; the rest is listed under **Later** |
 | **Online-first** (no full offline mode) | Drafts kept on the device, quiet retries, safe re-sends with browser-made IDs, and an honest banner |
-| **A bigger download** than SvelteKit | Each page loads only when it's opened; no heavy UI library |
+| **A bigger download** than SvelteKit | One bundle for now (per-page code-splitting is not built (planned)); no heavy UI library |
 | **Survivors can't use it themselves** | A volunteer at every step means it works without a phone, glasses or reading, and a person handles consent; an interpreter is fetched for anyone who doesn't speak English |
 | **A separate frontend host** (Netlify) | The page loads instantly even while the backend sleeps; Netlify forwards `/api/*`, so cookies work without extra setup |

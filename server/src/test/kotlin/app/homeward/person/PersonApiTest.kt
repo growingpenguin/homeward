@@ -89,11 +89,62 @@ class PersonApiTest : IntegrationTest() {
     }
 
     @Test
+    fun `two forms with the same id sent at the same time store one person and neither fails`() {
+        val s = loggedIn()
+        val id = UUID.randomUUID()
+        val pool =
+            java.util.concurrent.Executors
+                .newFixedThreadPool(8)
+        val start = java.util.concurrent.CountDownLatch(1)
+        val jobs =
+            (1..8).map {
+                pool.submit<Int> {
+                    start.await()
+                    register(s, """{"id":"$id","preferredName":"Parallel Pennington"}""").andReturn().response.status
+                }
+            }
+        start.countDown()
+        val statuses = jobs.map { it.get() }
+        pool.shutdown()
+        assertTrue(statuses.all { it == 200 || it == 201 }, "statuses were $statuses")
+        assertEquals(1, statuses.count { it == 201 }, "exactly one form creates the person: $statuses")
+        assertEquals(1, count("SELECT count(*) FROM persons WHERE id = '$id'"))
+    }
+
+    @Test
     fun `an unknown field like ssn is refused, not silently dropped`() {
         register(loggedIn(), """{"id":"${UUID.randomUUID()}","preferredName":"X","ssn":"123-45-6789"}""").andExpect {
             status { isBadRequest() }
             jsonPath("$.message") { value("Something in this form isn't allowed. Please check it and try again.") }
         }
+    }
+
+    @Test
+    fun `fields we never collect (immigration status, photo, date of birth) are refused with a plain sentence`() {
+        for (field in listOf(""""immigrationStatus":"x"""", """"photo":"data:image/png;base64,AAAA"""", """"dateOfBirth":"1990-01-01"""")) {
+            register(loggedIn(), """{"id":"${UUID.randomUUID()}","preferredName":"Edgar Fairweather",$field}""").andExpect {
+                status { isBadRequest() }
+                jsonPath("$.message") { value("Something in this form isn't allowed. Please check it and try again.") }
+            }
+        }
+        assertEquals(0, count("SELECT count(*) FROM persons WHERE preferred_name = 'Edgar Fairweather'"))
+    }
+
+    @Test
+    fun `a name of only spaces is refused, and one over 100 characters gets a plain sentence`() {
+        val s = loggedIn()
+        for (blank in listOf("", "   ", "\\t \\n")) {
+            register(s, """{"id":"${UUID.randomUUID()}","preferredName":"$blank"}""").andExpect {
+                status { isBadRequest() }
+                jsonPath("$.message") { value("Please write a name or nickname.") }
+            }
+        }
+        register(s, """{"id":"${UUID.randomUUID()}","preferredName":"${"A".repeat(101)}"}""").andExpect {
+            status { isBadRequest() }
+            jsonPath("$.message") { value("Please use a shorter name.") }
+        }
+        // Exactly 100 is fine.
+        register(s, """{"id":"${UUID.randomUUID()}","preferredName":"${"B".repeat(100)}"}""").andExpect { status { isCreated() } }
     }
 
     @Test

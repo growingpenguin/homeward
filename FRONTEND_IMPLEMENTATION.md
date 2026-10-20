@@ -21,7 +21,7 @@ How each step of `FRONTEND_PLAN.md` was actually built: what was done, commands,
 - **Vitest 5**, not 3: Vitest 3 doesn't accept Vite 8 (the earlier ERESOLVE).
 - **Lint is oxlint + `tsc`** (the template's linter), not ESLint.
 - **Port 8080 on this Mac is shared with an SSH tunnel** (IPv4), so `localhost:8080` can reach the tunnel instead of the backend. Generated with `API_URL='http://[::1]:8080' npm run gen:api`; for dev, `API_TARGET='http://[::1]:8080' npm run dev`.
-- `netlify.toml` uses `homeward-api.onrender.com` (the service name in `render.yaml`); to confirm once the Render service is live.
+- `netlify.toml` uses `homeward-api-fjrc.onrender.com` (the live service URL; Render added a suffix to the name in `render.yaml`).
 
 **Tests:**
 ```
@@ -247,3 +247,39 @@ README counts now match the reunion tests. Local commands use subshells so runni
 **Verification:** PowerPoint OOXML validation against the original passed. Exported with LibreOffice and inspected all 16 rendered slides; re-rendered after replacing the missing comparison symbols. Application files are unchanged; the preceding validation remains 155 SQL checks, 52 backend tests and 26 frontend tests passing, frontend lint 0 errors (2 existing warnings), production build passing.
 
 **Independent review:** GPT-6-astra found no material accuracy issues in the changed claims. Its two README suggestions (JDK 21 prerequisite and separate terminal for Vite) were applied. Latest rendered slides include the comparison-cell corrections; earlier montage images were stale.
+
+## UI polish (after 1.0.0): less to think about, nothing oddly placed
+
+**Why:** a review of every screen at tablet (820) and laptop (1280) width, by a Sonnet agent, from two angles: a child or exhausted person, and a designer who wants clean alignment. It found layout faults on every screen and three places where the screen said too much.
+
+**Fixed** (`styles/tokens.css` rewritten around three tokens, `--gap`, `--column` and `--line`, plus small JSX changes):
+- Big buttons: the label is centered instead of stuck to the top of the box.
+- Radios and tick boxes sit beside their words, centered on one or two lines. Before, they sat centered **above** the words, because `.stack label` (higher specificity) overrode `.choice-card`.
+- One spacing rhythm: browser default margins removed, every gap comes from `--gap`, and one heading scale.
+- Buttons in one column are one width; confirm prompts are a row.
+- Answer and match cards get inner spacing; nothing touches any more.
+- The lock screen and code keypad are laid out properly (they had no CSS).
+- Inputs, text boxes and buttons use the page font; the message box was monospace.
+- Every `role="alert"` is red and bold, including login and unlock errors.
+- The slip looks like a slip on screen too, with a large code and PIN.
+- The top bar shares the content column's edges; the bottom has room, so the Netlify badge covers nothing.
+- **Less to read:** the privacy question is shown once (it was the heading, a "Say:" box and the legend). A searcher's message is labelled "Read this to them:", not "Say:". The age step says "you" throughout.
+
+**Checked:** measured at 820 px, the top bar text, content, button edges and card radios line up (edges 50 / 770 px; radio center = card center). `npm run lint` 0 errors · `npm test` 26 passed · `npm run build` passed.
+
+
+## Edge-case campaign (branch `feature/edge-cases`)
+
+Frontend tests 26 to **34**. Each test was seen failing under a temporary mutation that was then reverted.
+
+| Case | Test | Failing line seen first | Result |
+|---|---|---|---|
+| CH8 child match card | `search.test.tsx`: the card shows "a child: a lead decides before anything is shared" | mutation (child reason filtered out of the list): `Unable to find an element with the text: a child: a lead decides ...` | pass |
+| TV5 drafts per volunteer | `useDraft.test.tsx`: another volunteer never sees a draft; switching volunteer loads theirs; `clearAllDrafts` removes all drafts and nothing else | mutation (key without the staff id): 4 failures; mutation (clear does nothing): `expected [ ...(4) ] to deeply equal [ 'something-else' ]` | pass |
+| TV7 corrupt / expired draft | `useDraft.test.tsx`: broken JSON, older than 12 h (also deleted), no timestamp, wrong shape are discarded | mutation (no expiry check): `expected { name: 'Old' } to deeply equal { name: '' }` | pass |
+| NW1 retry rules | `queryClient.test.ts`: `worthRetrying` retries a network error and 500/502/503/504, never 400/401/403/404/409/422/429, stops after 3 | mutation (4xx check removed): `expected true to be false` | pass |
+| NW5 502 on login | `login.test.tsx`: a 502 is tried again 3 times (fake timers) then shows "Couldn't reach Homeward. Check the internet and try again."; a 401 shows the server's sentence and is not retried | mutation (show the server message for every HttpError): the 502 test fails | pass |
+
+`npm run lint` 0 errors · `npm test` 34 passed.
+
+**Noticed, not changed:** `mayBeChild` in `forms/registerSchema.ts` mirrors the old `treated_as_minor`; after V6 the server also counts an estimated age under 21 as a child, so for an estimated 18 to 20 marked "18 or over" the form does not ask "is an adult with them?" while the server treats the person as a child. This is safe (the server decides) and is left for a follow-up.

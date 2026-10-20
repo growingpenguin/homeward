@@ -58,13 +58,13 @@ export function SlipPage({ isLead = false }: { isLead?: boolean }) {
       {isLead && !printed && (
         <div className="stack no-print">
           {confirming === "reprint" ? (
-            <p role="alert">
+            <p role="alert" className="confirm">
               {t.lead.reprintConfirm}{" "}
               <button type="button" onClick={() => reprint.mutate()} disabled={reprint.isPending}>{t.lead.yesReprint}</button>{" "}
               <button type="button" onClick={() => setConfirming(null)}>{t.lead.cancel}</button>
             </p>
           ) : confirming === "protect" ? (
-            <p role="alert">
+            <p role="alert" className="confirm">
               {t.lead.protectConfirm}{" "}
               <button type="button" onClick={() => protect.mutate(undefined, { onSuccess: () => setConfirming(null) })} disabled={protect.isPending}>
                 {t.lead.yesProtect}

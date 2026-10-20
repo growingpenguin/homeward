@@ -61,7 +61,7 @@ The constraints come first, then the code that enforces each one. Writing these 
 - The database backs this up: matching reads from a view with no location in it, and a trigger blocks connecting anyone with a safety flag.
 
 ```kotlin
-// web/dto/searcher/SearcherStatus.kt
+// consent/dto/searcher/SearcherStatus.kt
 // The ONLY type a searcher ever receives. It has no shelter, phone or address field,
 // so a location can't be attached to it by accident.
 // "type" is written into the JSON ("Active" / "Safe" / "Connected"), so the frontend can tell the
@@ -88,7 +88,7 @@ sealed interface SearcherStatus {
 ```
 
 ```kotlin
-// service/VisibilityService.kt
+// consent/VisibilityService.kt
 // The single place that decides what a searcher may see.
 // Controllers never filter location fields themselves; they call this.
 @Service
@@ -148,16 +148,16 @@ class VisibilityService(
 - Every release is written to the audit log, so we always know who approved it.
 
 ```kotlin
-// service/ConsentService.kt
+// consent/ConsentService.kt
 @Service
 class ConsentService(
     private val requests: ContactRequestRepo,
     private val currentStaff: CurrentStaff,                     // reads the logged-in user from Spring Security
     private val audit: AuditService,
 ) {
-    // Only a lead or coordinator can release a minor; a volunteer gets 403.
+    // Only a lead or coordinator can release a minor; a volunteer gets 403. This is enforced by the
+    // /api/lead/** route in SecurityConfig, not by @PreAuthorize.
     // The DB trigger checks the same rule (and safety flags), so a bug here still can't release a child.
-    @PreAuthorize("hasAnyRole('LEAD', 'COORDINATOR')")
     @Transactional
     fun releaseMinor(requestId: UUID, approval: MinorReleaseApproval) {
         val lead = currentStaff.get()                           // from the login, never from the request body
@@ -182,9 +182,10 @@ class ConsentService(
     fun connectFindable(requestId: UUID, contactPlan: String) {
         val staff = currentStaff.get()
         val request = requests.get(requestId)
-        // Only the desk where the search was made, or where the found person is registered (403 otherwise).
+        // Only the desk where the search was made, or where the found person is registered.
+        // Anyone else gets 404, the same as for a request that doesn't exist.
         if (staff.shelterId != request.searchShelterId && staff.shelterId != request.personShelterId) {
-            throw AccessDeniedException("This request belongs to another shelter.")
+            throw notFound()
         }
         check(request.personVisibility == Visibility.FINDABLE) { "This person asked to be asked first." }
         require(contactPlan.isNotBlank()) { "Please write how they will meet." }
@@ -215,7 +216,7 @@ data class MinorReleaseApproval(
 - A wrong code, a locked code and a wrong PIN get the same reply and take about the same time, and the codes skip look-alike characters (0/O, 1/I) so they're easy to read aloud or copy by hand.
 
 ```kotlin
-// service/ReunionCodeService.kt
+// person/ReunionCodeService.kt
 // A survivor with no phone shows a printed slip (code + PIN) at any shelter.
 @Service
 class ReunionCodeService(
@@ -259,7 +260,7 @@ class ReunionCodeService(
 }
 ```
 
-A lost slip is reissued by a lead or coordinator only (`@PreAuthorize("hasAnyRole('LEAD', 'COORDINATOR')")`). With no ID, the lead checks the person with questions only they'd know (family names, home street), and the old code is voided in the same transaction.
+A lost slip is reissued by a lead or coordinator only (the `/api/lead/**` route; the lead does it from the person's slip page, `/persons/:id/slip`). There is no lookup by name. With no ID, the lead checks the person with questions only they'd know (family names, home street), and the old code is voided in the same transaction.
 
 ### 4. "Many people have no ID"
 
@@ -270,7 +271,7 @@ A lost slip is reissued by a lead or coordinator only (`@PreAuthorize("hasAnyRol
 - **`MatchingService`** puts small clues together (a similar name, a nickname, a close age; place comes later) and shows the volunteer why each person might be a match. It only suggests; a person decides.
 
 ```kotlin
-// web/dto/RegisterPersonRequest.kt
+// person/PersonDtos.kt
 data class RegisterPersonRequest(
     val id: UUID,                                               // made by the browser; a re-send uses the same id
 
@@ -303,8 +304,9 @@ data class RegisterPersonRequest(
 `MatchingService` combines these weak clues into a score with plain-English reasons, and **only suggests**:
 
 ```kotlin
-// Shown to the volunteer, e.g. reasons = ["name sounds like 'Maria'", "age within 5 years"]
-data class MatchCandidate(val personId: UUID, val score: Double, val reasons: List<String>)
+// Shown to the volunteer, e.g. reasons = ["name sounds like Maria Garcia", "age fits (about 80)"]
+// (match/SearchDtos.kt; no shelter, phone or home area on it)
+data class MatchCard(val personId: UUID, val preferredName: String, val score: Double, val reasons: List<String> /* ... */)
 ```
 
 ### 5. "Each shelter keeps its own list, some on paper"
@@ -313,10 +315,10 @@ data class MatchCandidate(val personId: UUID, val score: Double, val reasons: Li
 - The browser makes the record's ID before sending it. If the Wi-Fi drops and the form gets sent twice, the second one is ignored (`ON CONFLICT DO NOTHING`), so the same person is never saved twice.
 - Paper records keep where they came from (`source`, `paperRef` like "Sheet 4, line 12") and when they were written down, not just when they were typed in.
 - That way a volunteer can always go back to the original paper sheet if something looks wrong.
-- When a new person is saved, old searches are run again, so a paper entry typed in tonight can still match a search from yesterday.
+- A paper entry typed in tonight can still match a search from yesterday: a volunteer presses **Check again** on the saved search (`POST /api/searches/{id}/check`). Automatic re-runs when a person is saved are not built (planned).
 
 ```kotlin
-// repo/PersonRepo.kt
+// person/PersonRepo.kt
 @Repository
 class PersonRepo(private val jdbc: JdbcClient) {
 
@@ -350,7 +352,7 @@ class PersonRepo(private val jdbc: JdbcClient) {
 ### 6. "Volunteers are non-technical and exhausted"
 
 - **`SecurityConfig`** sets up login and decides who can do what. I use Spring Security here instead of writing my own login code, because that's the easiest place to make a dangerous mistake.
-- There are three roles: volunteer, lead and coordinator. Lead-only pages and actions are blocked for regular volunteers.
+- There are three roles: volunteer, lead and coordinator (a role hierarchy: COORDINATOR > LEAD > VOLUNTEER). Everything under `/api/lead/**` needs LEAD, so lead-only actions are blocked for regular volunteers by the route, not by `@PreAuthorize`.
 - A login lasts a whole shift (12 hours), so tired volunteers don't keep getting kicked out. Sessions live in memory for the MVP: when the free Render server sleeps, volunteers log in again (close to the 10-minute idle lock anyway).
 - But if there are no clicks or typing for 10 minutes, it asks for the PIN again, because laptops get left on desks. Background refreshes don't count as activity.
 - Even the code + PIN lookup needs a volunteer to be logged in, so every lookup is tied to a real person at a real desk.
@@ -366,8 +368,8 @@ class SecurityConfig {
     fun filterChain(http: HttpSecurity): SecurityFilterChain =
         http
             .authorizeHttpRequests {
-                it.requestMatchers("/api/login", "/api/csrf").permitAll()  // only these work without a login
-                it.requestMatchers("/api/lead/**").hasAnyRole("LEAD", "COORDINATOR")
+                it.requestMatchers("/api/health", "/error", "/api/shelters", "/api/csrf", "/api/login", "/api/openapi.json").permitAll()  // only these work without a login
+                it.requestMatchers("/api/lead/**").hasRole("LEAD")  // coordinators too, through the role hierarchy
                 it.anyRequest().authenticated()                 // includes /api/lookup (code + PIN)
             }
             .csrf { it.spa() }                                  // CSRF token the React app sends back on every change
@@ -382,18 +384,18 @@ class SecurityConfig {
 ```
 
 - The session lasts a shift (`server.servlet.session.timeout: 12h`), in an HTTP-only, `SameSite` cookie, with CSRF protection.
-- `PATCH` saves the "before" version into `person_history`, so a mistake can be undone.
+- `PUT /api/persons/{id}` saves the "before" version into `person_history`, so a mistake can be undone.
 
 ### 7. Every search and reveal is traceable
 
 - **`AuditService`** writes down every search, every contact request, every decision, every code lookup and every reveal: who did it, what they did and when.
 - I call it inside the same service method that does the action (and in the same transaction), not from the controllers, and tests check that each of those actions leaves a log entry.
 - The app's database user can only add to the log. It can't change or delete anything, so nobody can cover their tracks.
-- This lets a lead spot something odd, like one person searching for lots of different people.
-- There's also no "export everyone" button. Coordinators have the same rights as leads, and their own dashboard shows only counts.
+- This is meant to let a lead spot something odd, like one person searching for lots of different people (pattern flags and a coordinator dashboard are not built (planned); the log is the record for now).
+- There's also no "export everyone" button. Coordinators have the same rights as leads; a counts-only coordinator dashboard is not built (planned).
 
 ```kotlin
-// service/AuditService.kt
+// audit/AuditService.kt
 // Called from the service method that does the action, in the same transaction.
 // The app's DB user can only INSERT into audit_log: no edits, no deletes.
 @Service
@@ -417,23 +419,25 @@ class AuditService(private val jdbc: JdbcClient) {
 
 Matching is hand-written SQL (`similarity()`, `dmetaphone()`). Spring JDBC keeps it visible and reviewable, with parameterized queries only. JPA would hide that SQL, and lazy loading could pull in data (like a shelter) I didn't mean to load and send.
 
-**Versions:** Spring Boot 4.1.1 / Spring Security 7 (needed for the one-line `csrf { it.spa() }`; `JdbcClient` needs 3.2+), Kotlin 2.3.21, JDK 21, and the `kotlin("plugin.spring")` plugin, so Spring can wrap Kotlin's final classes for `@Transactional` and `@PreAuthorize`.
+**Versions:** Spring Boot 4.1.1 / Spring Security 7 (needed for the one-line `csrf { it.spa() }`; `JdbcClient` needs 3.2+), Kotlin 2.3.21, JDK 21, and the `kotlin("plugin.spring")` plugin, so Spring can wrap Kotlin's final classes for `@Transactional`.
 
-**Migrations:** the running app **never** migrates and never holds the owner's password. Migrations (`V1__base_tables.sql`, `V2__login_and_schema_version.sql`, then `V3`/`V4`) run only through `scripts/db-migrate.sh`, as the owner. At startup, the app reads the schema version (as `homeward_app`) and refuses to start if the database is older than the code. Schema changes are new files; applied migrations are never edited.
+**Migrations:** the running app **never** migrates and never holds the owner's password. Migrations (`V1__base_tables.sql` to `V5__request_message.sql`) run only through `scripts/db-migrate.sh`, as the owner. At startup, the app reads the schema version (as `homeward_app`) and refuses to start if the database is older than the code. Schema changes are new files; applied migrations are never edited.
 
 ---
 
 ## Backend layout
 
 ```
-server/src/main/kotlin/app/homeward/
-  web/              controllers: thin, validate input and call a service
-  web/dto/          request/response types
-  web/dto/searcher/ searcher-facing types (no location fields, ever)
-  service/          VisibilityService, ConsentService, ReunionCodeService, MatchingService, AuditService
-  repo/             Spring JDBC repositories (parameterized SQL)
-  security/         SecurityConfig, PIN login, roles, idle lock
-server/src/main/resources/db/migration/   Flyway migrations (V1__base_tables.sql, then V2/V3)
+server/src/main/kotlin/app/homeward/       one package per feature (controller, DTOs, service, JDBC repo)
+  security/             SecurityConfig, PIN login, roles, idle lock
+  person/               registration, edit, slips (ReunionCodeService, PersonDtos)
+  match/                MatchingService, SearchController, SearchService, SearchRepo
+  consent/              VisibilityService, ConsentService, LeadService, lead and answers endpoints
+  consent/dto/searcher/ searcher-facing types (no location fields, ever)
+  audit/                AuditService
+  db/                   database URL parsing, schema version check
+  web/                  shared pieces: health, plain-sentence errors (ApiErrors)
+server/src/main/resources/db/migration/   Flyway migrations (V1__base_tables.sql to V5__request_message.sql)
 server/src/test/kotlin/                   JUnit 5 + Testcontainers + MockMvc
 ```
 
@@ -444,21 +448,21 @@ server/src/test/kotlin/                   JUnit 5 + Testcontainers + MockMvc
 3. New people default to `ASK` (API and DB), and a chosen `HIDDEN` is actually saved.
 4. A safety flag beats `FINDABLE`, and a flag added *after* "Connect" hides the person again.
 5. Releasing a child without a lead, a guardian check or a note fails in the **service** and in the **DB trigger**.
-6. 5 wrong PINs lock the code, even when 20 guesses arrive at the same time.
+6. 5 wrong PINs lock the code, even when 23 guesses arrive at the same time.
 7. Re-sending a registration with the same UUID doesn't duplicate.
 8. A volunteer gets `403` on lead-only endpoints, and can't read another shelter's search, unless the searcher's own code + PIN were just checked at their desk.
-9. `connectFindable` from a shelter that isn't one of the two desks involved gets `403`; with a child on either side it's refused; on a request the person already answered ("no" or "safe only") it's refused and the answer stays.
+9. `connectFindable` from a shelter that isn't one of the two desks involved gets `404`; with a child on either side it's refused; on a request the person already answered ("no" or "safe only") it's refused and the answer stays.
 10. Every reveal and every code lookup (right or wrong) leaves an audit entry.
 
 ---
 
-## Open items (designed, not yet written down in code)
+## Open items (some built, some not built (planned))
 
-- **Data retention:** a scheduled job deletes personal data 90 days after the event closes (configurable). A separate maintenance user does the deleting, so the app's user still can't touch the audit log.
-- **Re-running searches:** after a new person is saved, matching runs again for open searches. If it fails, it retries, and the same person is never suggested twice for one search.
-- **Issuing codes:** codes are made with `SecureRandom`, checked to be unique, and the PIN is shown only once on the printed slip.
-- **Paper forms:** each typed-in paper form is sent like a normal registration, with `source = paper`, `paperRef` and `recordedAt`. No separate batch API is needed (see FRONTEND.md).
-- **Adults who can't decide for themselves** (e.g. from a nursing home): a lead records the decision, the same way as for children.
+- **Data retention:** not built (planned); the `homeward_maint` role exists. A scheduled job would delete personal data 90 days after the event closes (configurable). A separate maintenance user does the deleting, so the app's user still can't touch the audit log.
+- **Re-running searches (automatic):** not built (planned). Today only the manual **Check again** exists (`POST /api/searches/{id}/check`; `GET /api/searches/{id}` only reads). The same person is never suggested twice for one search. Planned: after a new person is saved, matching runs again for open searches.
+- **Issuing codes (built):** codes are made with `SecureRandom`, checked to be unique, and the PIN is shown only once on the printed slip.
+- **Paper forms (built):** each typed-in paper form is sent like a normal registration, with `source = paper`, `paperRef` and `recordedAt`. No separate batch API is needed (see FRONTEND.md).
+- **Adults who can't decide for themselves** (e.g. from a nursing home), not built (planned): a lead would record the decision, the same way as for children.
 
 ---
 

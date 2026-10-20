@@ -88,14 +88,18 @@ export const registerSchema = registerFields
   });
 
 // Under 18, or nobody knows: the same rule as the database's treated_as_minor().
+// The same rule as the database's treated_as_minor() (V6): a known age decides, and an ESTIMATED age
+// under 21 counts as a child. The form always sends ages as estimates, so any age under 21 here.
+// Without an age, only "18 or over" makes someone an adult.
+const CHILD_IF_ESTIMATED_UNDER = 21;
+
 export function mayBeChild(isMinor: boolean | null | undefined, approxAge: number | undefined): boolean {
-  if (isMinor === true) return true;
-  if (isMinor === false) return false;
-  return approxAge === undefined || approxAge < 18;
+  if (approxAge !== undefined) return approxAge < CHILD_IF_ESTIMATED_UNDER;
+  return isMinor !== false;
 }
 
 const knownChild = (isMinor: boolean | null | undefined, approxAge: number | undefined) =>
-  isMinor === true || (isMinor !== false && approxAge !== undefined && approxAge < 18);
+  approxAge !== undefined ? approxAge < CHILD_IF_ESTIMATED_UNDER : isMinor === true;
 
 // What is sent: an adult's "adult with them" answer is meaningless, so it's always false for them.
 export const unaccompaniedToSend = (f: RegisterForm) => (mayBeChild(f.isMinor, f.approxAge) ? f.unaccompanied === true : false);

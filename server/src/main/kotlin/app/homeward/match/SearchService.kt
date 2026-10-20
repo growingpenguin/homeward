@@ -18,6 +18,12 @@ class SearchService(
     @Transactional
     fun start(r: StartSearchRequest): Pair<SearchResult, Boolean> {
         val staff = currentStaff.get()
+        // Checked here because Bean Validation doesn't reach inside the list: a name with no letter or digit
+        // ("...", "- '") would search for nothing, so it gets the same sentence as an empty one.
+        if (r.soughtNames!!.any { n -> n.none { it.isLetterOrDigit() } }) { // !!: validated as not empty
+            throw ApiException(HttpStatus.BAD_REQUEST, "Please write the name of the person they are looking for.")
+        }
+        if (r.soughtNames.any { it.trim().length > 100 }) throw ApiException(HttpStatus.BAD_REQUEST, "Please use a shorter name.")
         // A re-sent form (same id) returns the search that was saved, unless the form was changed in between.
         searches.find(r.id!!)?.let { saved ->
             // !!: validated as present

@@ -155,7 +155,7 @@ The count went from 43 to 73 because every result is now asserted (and counted) 
 No new migration: registration only uses the V1 tables. This step proves they work **the way the backend will use them**, logged in as the least-privilege `homeward_app` user.
 
 **Done**
-- `db/seed/demo_seed.sql`: **fictional** demo data from the PROPOSAL.md demo script: 3 shelters (Lincoln High Shelter, Eastside Community Center, Westfield High Gym) and 7 staff (3 volunteers, 3 leads, 1 coordinator). Demo PIN **2468** for every account (public on purpose, for the README), stored only as a BCrypt hash (`htpasswd -bnBC 10`, format `$2y$10$`, checked against the database's BCrypt rule). Re-runnable (`ON CONFLICT DO NOTHING`); not a migration, so Flyway never reads it.
+- `db/seed/demo_seed.sql`: **fictional** demo data from the PROPOSAL.md demo script: 3 shelters (Lincoln High Shelter, Eastside Community Center, Westfield High Gym) and 7 staff (3 volunteers, 3 leads, 1 coordinator; later reduced to 6, with no coordinator account, and the seed re-runs with `ON CONFLICT ... DO UPDATE` for shelters and staff). Demo PIN **2468** for every account (public on purpose, for the README), stored only as a BCrypt hash (`htpasswd -bnBC 10`, format `$2y$10$`, checked against the database's BCrypt rule). Re-runnable (`ON CONFLICT DO NOTHING`); not a migration, so Flyway never reads it.
 - `scripts/db-test.sh` now applies the seed **twice** after the migrations (proves it's re-runnable and valid against every CHECK).
 - `00_helpers.sql`: added `assert_true(condition, label)`, so every step test asserts.
 - `02_seed.sql` (5 checks): 3 shelters and 7 staff stored once, the right roles, every PIN a BCrypt hash, no people.
@@ -299,3 +299,18 @@ Every table, constraint, view, other function, trigger and grant is identical.
 **Deployed permissions:** checked Neon schema V5 using the real `homeward_app` credentials without printing them. Neither app nor maintenance role is a member of `neon_superuser`. Six no-row writes, each inside a rolled-back transaction, were denied with SQLSTATE 42501: audit UPDATE/DELETE, person DELETE, staff role UPDATE, history INSERT, and audit INSERT with a supplied timestamp. No live rows changed.
 
 **Independent review:** GPT-6-astra reviewed fixtures, preconditions, guards and assertion failure paths; no actionable findings. Claude CLI review was unavailable because its session quota was exhausted.
+
+
+## Edge-case campaign (branch `feature/edge-cases`, migration V6)
+
+Every new test was seen failing first (a missing V6, or a temporary mutation that was then reverted). New file `07_edge_cases.sql` (18 checks; total **173**, was 155). `V6__edge_cases.sql` is new; V1 to V5 are untouched. **Not applied to Neon.**
+
+| Case | Test | Failing line seen first | Result |
+|---|---|---|---|
+| B4 an estimated age under 21 is a child | 07: "about 18" and estimated 20 child; exact 19 and estimated 21 adult; exact 17 child; view and `find_candidates` agree | `FAIL: an estimated "about 18" is treated as a child` (also estimated 20, "marked adult + estimated 19", view, `find_candidates`) | pass |
+| CH5 no age and no answer | 07: unknown age, `is_minor` NULL, is a child; explicit "adult" is an adult | already true in V1 (regression guard, no mutation) | pass |
+| B2 hyphen / apostrophe split | 07: "Mary-Ann O'Brien" stored as words mary, ann, obrien; found by "Mary Ann OBrien", "Maryann Obrien", "Mary-Ann", "O’Brien" | `FAIL: "Mary-Ann O'Brien" is stored as the words mary, ann, obrien` (the four searches already found her by spelling similarity, so they are regression guards) | pass |
+| Non-Latin names | 07: Chinese and Arabic searches return without an error; the same Arabic name finds itself | no error before or after (guard) | pass |
+| DW10 app cannot UPDATE/DELETE `audit_log` | already in `01_base.sql` lines 74 to 78 (run as `homeward_app`) | covered, no change | pass |
+
+**V6 decisions.** (1) `treated_as_minor`: age known gives `approx_age < 18 OR (age_is_estimate AND approx_age < 21)`; no age gives `coalesce(is_minor, true)`. (2) The CHECK constraints are unchanged, so "adult" with an estimated 19 can still be stored, but **the estimate wins** and the person is treated as a child (safe side; the volunteer can enter an exact age, or a lead can correct it). (3) New `normalize_name()` (lower case, no accents, apostrophes removed, hyphens and dashes become spaces) is used by the `persons_fill_names` trigger and by `find_candidates`; existing rows are re-filled in the migration with the history trigger switched off for that one statement, so no edit snapshots are written.

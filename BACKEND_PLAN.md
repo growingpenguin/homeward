@@ -57,7 +57,7 @@ Spring Boot **4.1.1** (Spring Security 7: `csrf { spa() }` exists) · Kotlin (In
 ### B3. Registration API — `feature/backend-registration` (backend half of the registration slice)
 - `POST /api/persons` (`RegisterPersonRequest` from BACKEND.md: browser-made `id`, only `preferredName` required, `source`, `paperRef`, `recordedAt`, `slipCode`). Shelter and `entered_by` come from the login, never the body. Unknown JSON fields are **rejected** (so an `ssn` field can't sneak in). Same `id` again → `200` with the existing record, nothing new.
 - `POST /api/persons/{id}/slip`: attaches a pre-printed `slipCode` (only if free and working) **or** issues a new code (`SecureRandom`, no 0/O/1/I, retry on collision) with a 4-digit PIN shown **once** in the response; BCrypt-stored; audit `CODE_ISSUED`. If the person already has a working slip → `409` "Ask a lead to reprint" (so a retry never makes a second code).
-- `GET /api/persons/{id}` and `PATCH /api/persons/{id}` (edit; `updated_by` from the login): own shelter only, otherwise `404`.
+- `GET /api/persons/{id}` and `PUT /api/persons/{id}` (edit; `updated_by` from the login): own shelter only, otherwise `404`.
 - Errors: Bean Validation + database CHECK errors → plain sentences (ProblemDetail), matching the frontend's wording.
 - springdoc-openapi → `/api/openapi.json` for the frontend's generated types.
 - Tests: register, re-send, paper fields, hidden choice kept, slip issued once, pre-printed slip, cross-shelter 404, unknown field rejected, plain-sentence errors, all as the app user.

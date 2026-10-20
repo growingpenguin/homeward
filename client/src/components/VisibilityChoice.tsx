@@ -10,7 +10,7 @@ type Props = { value: Visibility; onChange: (v: Visibility) => void };
 export function VisibilityChoice({ value, onChange }: Props) {
   return (
     <fieldset className="choice-cards">
-      <legend>{t.steps.privacy}</legend>
+      <legend className="visually-hidden">{t.steps.privacy}</legend>
       {options.map((v) => (
         // The whole card is the click target, not just the small radio circle.
         <label key={v} className={value === v ? "choice-card is-selected" : "choice-card"}>

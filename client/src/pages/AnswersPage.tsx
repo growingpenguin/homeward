@@ -49,7 +49,7 @@ function Answer({ request: r }: { request: WaitingRequest }) {
     <article className="answer-card">
       <h3>{t.answers.lookingFor(searcher, r.personName)}</h3>
       {r.relationship && <p>{t.answers.relationship(r.relationship)}</p>}
-      {r.message && <SayThis>{r.message}</SayThis>}
+      {r.message && <SayThis label={t.answers.readOut}>{r.message}</SayThis>}
       {r.personVisibility === "findable" && <p>{t.answers.findable}</p>}
       {r.childInvolved ? (
         <p role="status"><strong>{t.answers.childNeedsLead}</strong></p>

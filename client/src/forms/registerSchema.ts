@@ -1,5 +1,7 @@
 // forms/registerSchema.ts
 // What the Register form accepts. Only the name is required; "I don't know" is always a valid answer.
+import type { Resolver } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { t } from "../strings";
 
@@ -50,17 +52,17 @@ const paperDate = z
 
 export const registerFields = z.object({
   preferredName: z.string().trim().min(1, t.name.missing).max(100, t.name.tooLong),
-  otherNames: z.array(z.string().trim().min(1)).default([]),
+  otherNames: z.array(z.string().trim().max(100, t.register.tooLong)).max(10, t.register.tooManyNames).default([]),
   approxAge: optionalAge,
   isMinor: z.boolean().optional(),                           // undefined = not sure
   unaccompanied: z.boolean().default(false),                 // asked only when they may be a child
-  homeArea: z.string().trim().optional(),
-  description: z.string().trim().max(500).optional(),     // anything that helps recognise them
-  phone: z.string().trim().optional(),
+  homeArea: z.string().trim().max(200, t.register.tooLong).optional(),
+  description: z.string().trim().max(500, t.register.tooLong).optional(),     // anything that helps recognise them
+  phone: z.string().trim().max(40, t.register.tooLong).optional(),
   visibility: z.enum(["findable", "ask", "hidden"]).default("ask"),   // safe default
   // Paper mode is chosen once, before the first form, and stays on for the whole stack.
   fromPaper: z.boolean().default(false),
-  paperRef: z.string().trim().optional(),
+  paperRef: z.string().trim().max(100, t.register.tooLong).optional(),
   paperDate,                                                 // the date written on the paper (yyyy-mm-dd)
   slipCode,
 });
@@ -80,6 +82,11 @@ export const registerSchema = registerFields
   });
 
 export type RegisterForm = z.infer<typeof registerSchema>;
+export type RegisterInput = z.input<typeof registerSchema>;   // what the boxes hold before the rules run
+
+// Cast: @hookform/resolvers 3 predates react-hook-form's separate input/output types. Version 5 has them,
+// but needs a newer zod than the 3.23.8 FRONTEND.md was checked with.
+export const personResolver = zodResolver(registerSchema) as unknown as Resolver<RegisterInput, unknown, RegisterForm>;
 
 // For drafts: whatever was typed so far, unfinished or not. Only the shape is checked here;
 // the full rules run when the volunteer presses Save.

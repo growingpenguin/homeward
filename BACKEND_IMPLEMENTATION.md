@@ -88,7 +88,47 @@ Result: `./gradlew build` → `BUILD SUCCESSFUL`, 6 tests, 0 failed; `scripts/db
 
 ## B2. Login and security
 
-_Not started._
+**Date:** 2026-10-20 · **Branch:** `feature/backend-security` → PR into `develop`
+
+**Done**
+- Endpoints: `GET /api/shelters` (public: id + name only), `GET /api/csrf`, `POST /api/login` {shelterId, name, pin}, `GET /api/me`, `POST /api/unlock` {pin}, `POST /api/logout`.
+- `SecurityConfig`: `csrf { spa() }` (XSRF-TOKEN cookie → `X-XSRF-TOKEN` header), session security context, session id changed on login, 401 (not a login page) for anonymous calls, role hierarchy coordinator > lead > volunteer, `@EnableMethodSecurity`, `/api/lead/**` needs LEAD. Spring's default in-memory user is replaced by a no-op.
+- Login: name matched case-insensitively with spaces trimmed (covers the review note on V2's untrimmed unique index); BCrypt check; **the same answer and the same BCrypt work** for an unknown name and a wrong PIN (dummy hash).
+- `LoginThrottle`: 5 wrong PINs for one shelter + name (or one unlock) → 429 for 15 minutes (in memory).
+- `IdleLockFilter`: 10 minutes without a request marked `X-Homeward-Activity` → `401 {"locked":true}` until `/api/unlock`; background requests never refresh it.
+- Session: 12 hours, cookie HttpOnly + SameSite=Lax, `Secure` via `COOKIE_SECURE` (`true` in render.yaml).
+- `CurrentStaff`: the logged-in staff member for every later service.
+- `scripts/db-seed.sh`: applied the fictional demo seed to Neon → `shelters: 3`, `staff: Lead Jordan, Lead Morgan, Lead Taylor, Volunteer Alex, Volunteer Casey, Volunteer Riley` (no coordinator).
+
+**Tests:** `./gradlew build` → `BUILD SUCCESSFUL`, **17 tests, 0 failed**: shelters public with names only · login with a loosely typed name · unknown name and wrong PIN give identical answers · login without CSRF refused · 5 wrong PINs lock even the right PIN · nothing reachable without login · volunteer 403 / lead OK on a lead-only action · idle lock + wrong/right unlock · background requests don't refresh the idle timer, a person's action does · logout ends the session · **the real browser CSRF flow** (cookie value sent back in the header).
+
+**Real run against Neon** (`scripts/run-backend.sh` + curl, as the browser will):
+```
+GET  /api/shelters → 3 shelters, ids and names only
+POST /api/login (right PIN, name typed "volunteer alex") → 200 {"displayName":"Volunteer Alex","role":"volunteer",...}
+GET  /api/me (with the cookie) → 200;  without it → 401
+```
+
+**Bug found by the real run:** `/api/csrf` returned `token.token` in JSON, but with `csrf.spa()` that value is **masked** and is rejected; the browser must send back the **cookie's** value. The first login attempt got 403 for that reason. `/api/csrf` now only sets the cookie and returns the names (`X-XSRF-TOKEN`, `XSRF-TOKEN`), and the new `CsrfFlowTest` proves the real flow. (In MockMvc, `token.headerName` reported `X-CSRF-TOKEN`, so the names are fixed constants, the ones `csrf.spa()` uses and the curl run accepted.)
+
+**Smaller fixes on the way:** Kotlin needed `ResponseEntity<*>`; ktlint wanted `IdleLock.kt` renamed to `IdleLockFilter.kt` and one line shortened; an unneeded `!!` removed.
+
+**Review (`/code-review`, Codex still unavailable):** 10 findings; 9 fixed, 1 deferred.
+
+| Finding | Fix |
+| --- | --- |
+| Parallel requests could all pass the "locked?" check before any failure was counted (5-try limit bypassed) | The whole check → BCrypt → count runs under one lock per name (`LoginThrottle.guarded`) |
+| After a lock expired, the count stayed at 5, so one typo locked again | An expired lock starts over from zero (new `LoginThrottleTest`) |
+| The attempts map could grow forever with made-up names | Capped at 10,000 entries; expired/unlocked entries purged first |
+| Login matched `lower(btrim(name))`, the unique index is `lower(name)`: two rows could match → 500 | Same expression as the index (`lower(display_name) = lower(btrim(:name))`) |
+| `maxInactiveInterval` isn't a 12-hour shift: background requests keep it alive | `LOGIN_AT` in the session; after 12 hours every request gets `401 {"expired":true}` and the session ends (new test) |
+| CSRF token not rotated at login | Login clears the XSRF cookie; the app fetches a new one |
+| XSRF cookie not `Secure` behind Render's proxy | `server.forward-headers-strategy: native` |
+| `db-seed.sh` put the owner URL on the docker command line (visible in `ps`) | Passed by name through the environment |
+| `me`/`unlock` repeated the principal lookup | Use `CurrentStaff` |
+| Anyone can keep a staff member locked out (no per-client limit) | **Deferred:** needs per-IP limits behind Render's proxy; after the deadline |
+
+**Mistake while fixing (caught by the tests before any commit):** my first attempt registered a custom CSRF repository bean, which stopped the XSRF cookie being set (`CsrfFlowTest` failed). While reverting it, a text replacement merged `.securityContext { ... }` into a comment, silently switching it off; the same test failed again and the chain was rewritten cleanly. Final: `./gradlew build` → **19 tests, 0 failed**.
 
 ## B3. Registration API
 

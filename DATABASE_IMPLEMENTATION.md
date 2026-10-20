@@ -236,7 +236,21 @@ Result after fixes: `02_seed.sql: 5 passed`, `03_registration.sql: 18 passed`, `
 
 ## Step 5. Consent and protection (`V4__consent_and_protection.sql`)
 
-_Not started._
+**Branch:** `feature/db-consent` (on top of `feature/db-matching`).
+
+**Done:**
+- `V4__consent_and_protection.sql` moved unchanged from the draft (by line range): `contact_requests` + the guard trigger (flags on person, search or searcher; a child on either side needs a lead, a guardian check and a note; a request can't be moved), `searches_keep_searcher`, `persons_recheck_minor`, `safety_flags_block_reveals`, grant (`SELECT, INSERT, UPDATE` on `contact_requests`; no DELETE).
+- Backend tests now take the expected schema version from the newest `V<n>__*.sql` file (they had `2` written in, and failed when V3 arrived).
+
+**Tests:** `scripts/db-test.sh` → **all passed**; new `05_protection.sql` **24 passed** (as `homeward_app`): child connected only with lead + guardian check + note (no lead / volunteer approver / no check / blank note refused) · blank contact plan refused · request can't move (person or search), app can't delete requests · flag on the person beats "findable" (Connect and "safe only" refused) · a flag added after Connect switches it to `blocked` · flag on the searcher, and on the search, blocks Connect, even with a temp table named `safety_flags` · `do_not_disclose` only on a person · a child **searcher** also needs a lead · the searcher can't be swapped (on a search with one, or after a Connect) · correcting an age to a child sends unapproved Connects back to `pending`, lead-approved ones stay.
+
+**Proof that nothing else changed:** V1–V4 and the draft applied to two databases in one `postgres:18.6` container, `pg_dump --schema-only` compared statement by statement. Only differences, all intended:
+```
+find_candidates                      (age before the 100-candidate cut, step 4 fix)
++ reunion_codes_keep_person + trigger (slip stays with its person, step 4 fix)
++ staff_login_name index              (V2, from the backend plan)
+```
+Every table, constraint, view, other function, trigger and grant is identical.
 
 ## Step 6. Full reunion test (database side)
 

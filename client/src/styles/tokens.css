@@ -5,25 +5,69 @@
   --ink: #1a1a1a;           /* near-black on white: strong contrast */
   --paper: #ffffff;
   --focus: #1c7293;         /* a thick, visible focus ring for keyboard users */
+  --line: #999;             /* card and control borders */
+  --gap: 16px;              /* the one spacing step between things */
+  --column: 720px;          /* the one content width */
 }
 body { margin: 0; color: var(--ink); background: var(--paper); font-family: system-ui, sans-serif; font-size: var(--text); line-height: 1.5; }
-button, input, select, textarea { min-height: var(--tap-min); min-width: var(--tap-min); font-size: var(--text); }
-.big-button { display: flex; flex-direction: column; width: 100%; min-height: calc(var(--tap-min) * 1.5); }
-.choice-card { display: flex; flex-direction: column; gap: 4px; min-height: var(--tap-min); padding: 12px 16px; }
-.keypad { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--tap-min), 1fr)); gap: 8px; }
+/* One rhythm: spacing comes from .stack gaps, never from browser default margins. */
+h1, h2, h3, h4, p, ul, dl, fieldset { margin: 0; }
+h1 { font-size: 1.2rem; }
+h2 { font-size: 1.4rem; }
+h3, h4 { font-size: 1.1rem; }
+button, input, select, textarea { min-height: var(--tap-min); min-width: var(--tap-min); font-size: var(--text); font-family: inherit; }
+button { cursor: pointer; }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-main { max-width: 720px; margin: 0 auto; padding: 16px; }
-.stack { display: flex; flex-direction: column; gap: 16px; }
+
+/* Layout: one centred column; room at the bottom so the hosting badge never covers a button. */
+main { max-width: var(--column); margin: 0 auto; padding: var(--gap) var(--gap) 96px; }
+main > * + * { margin-top: var(--gap); }   /* the title and the page below it get the same gap as everything else */
+.stack { display: flex; flex-direction: column; gap: var(--gap); }
 .stack label { display: flex; flex-direction: column; gap: 4px; }
-.top-bar { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 8px 16px; border-bottom: 1px solid #ccc; }
-.banner { padding: 12px 16px; background: #fff4cc; border: 1px solid #c9a800; }
-.choice-cards { display: flex; flex-direction: column; gap: 8px; border: 0; padding: 0; margin: 0; }
-.choice-card { border: 2px solid #999; border-radius: 8px; cursor: pointer; }
+.stack > button, .match-card > button { width: 100%; }   /* buttons in one column are one width */
+.top-bar { display: flex; justify-content: space-between; align-items: center; gap: var(--gap); padding: 8px max(var(--gap), calc((100% - var(--column)) / 2));   /* same left/right edges as the content */ border-bottom: 1px solid #ccc; }
+
+/* Big buttons: the label sits in the middle of the button, not stuck to its top. */
+.big-button { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; width: 100%; min-height: calc(var(--tap-min) * 1.5); }
+
+/* Choices: the radio / tick box sits beside its words, not above them. */
+.choice-cards { display: flex; flex-direction: column; gap: 8px; border: 0; padding: 0; }
+.choice-cards legend { padding: 0; margin-bottom: 8px; }
+.stack .choice-card, .choice-card, .stack label.checkbox { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; align-items: center; }
+.choice-card { min-height: var(--tap-min); padding: 12px 16px; border: 2px solid var(--line); border-radius: 8px; cursor: pointer; }
+/* A card with a label AND a hint line: the radio stays centred beside both lines. */
+.choice-card:has(> :nth-child(3)) > input { grid-row: 1 / span 2; }
 .choice-card.is-selected { border-color: var(--focus); background: #e8f3f6; }
+input[type=radio], input[type=checkbox] { width: 28px; height: 28px; min-width: 0; min-height: 0; margin: 0; }
+
+/* Cards: the same inner spacing everywhere. */
+.match-card, .answer-card { display: flex; flex-direction: column; gap: 12px; border: 2px solid var(--line); border-radius: 8px; padding: 12px 16px; }
+.confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+/* Code keypad and lock screen. */
+.code-keypad { display: flex; flex-direction: column; gap: var(--gap); }
+.code-input { display: flex; flex-direction: column; gap: 4px; }
+.code-input__row { display: flex; align-items: center; gap: 8px; font-weight: bold; }
+.code-input__row input { flex: 1; letter-spacing: 2px; text-transform: uppercase; }
+.keypad { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--tap-min), 1fr)); gap: 8px; }
+.lock-screen { max-width: 480px; }
+
+/* Messages. */
+.banner { padding: 12px 16px; background: #fff4cc; border: 1px solid #c9a800; }
+.banner--offline { background: #eef2f7; border-color: #5b6b80; }
+.problem, [role=alert] { color: #9b1c1c; font-weight: bold; }
 .say-this { padding: 12px 16px; background: #f2f2f2; border-left: 4px solid var(--focus); }
-.problem { color: #9b1c1c; font-weight: bold; }
 .summary dt { font-weight: bold; margin-top: 8px; }
 .summary dd { margin: 0; }
-.match-card, .answer-card { border: 2px solid #999; border-radius: 8px; padding: 12px 16px; }
 .contact-plan { font-size: 1.2em; font-weight: bold; }
-.searcher-view { position: fixed; inset: 0; background: var(--paper); padding: 32px 16px; display: flex; flex-direction: column; gap: 24px; justify-content: center; font-size: 1.4em; z-index: 10; }
+
+/* The slip: the code and PIN are what a stressed person must read, so they look like a slip on screen too. */
+.slip { display: flex; flex-direction: column; gap: 8px; border: 2px dashed var(--ink); padding: var(--gap); }
+.slip-code { font-size: 1.8em; font-weight: bold; letter-spacing: 2px; }
+nav.stack a { display: flex; align-items: center; min-height: var(--tap-min); }
+
+/* The searcher's full screen. */
+.searcher-view { position: fixed; inset: 0; background: var(--paper); padding: 32px var(--gap); display: flex; flex-direction: column; gap: 24px; justify-content: center; font-size: 1.4em; z-index: 10; }
+.searcher-view button { font-size: 1em; }
+/* Read by screen readers, not shown (when the same words are already the heading). */
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

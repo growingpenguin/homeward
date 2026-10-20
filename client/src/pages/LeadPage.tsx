@@ -51,7 +51,7 @@ export function LeadPage() {
             <li key={f.flagId}>
               <strong>{t.lead.kinds[f.kind] ?? f.kind}</strong>: {f.about}{f.note ? ` (${f.note})` : ""}{" "}
               {confirmLift === f.flagId ? (
-                <span role="alert">
+                <span role="alert" className="confirm">
                   {t.lead.liftConfirm(t.lead.kinds[f.kind] ?? f.kind, f.about)}{" "}
                   <button type="button" onClick={() => lift.mutate(f.flagId)} disabled={lift.isPending}>{t.lead.yesLift}</button>{" "}
                   <button type="button" onClick={() => setConfirmLift(null)}>{t.lead.cancel}</button>
@@ -90,9 +90,9 @@ function Release({ request: r }: { request: WaitingRequest }) {
   const ready = guardian && agreed && note.trim() !== "" && plan.trim() !== "";
   return (
     <article className="answer-card stack">
-      <h4>{t.answers.lookingFor(r.searcherName ?? t.answers.unknownSearcher, r.personName)}</h4>
+      <h3>{t.answers.lookingFor(r.searcherName ?? t.answers.unknownSearcher, r.personName)}</h3>
       {r.relationship && <p>{t.answers.relationship(r.relationship)}</p>}
-      {r.message && <SayThis>{r.message}</SayThis>}
+      {r.message && <SayThis label={t.answers.readOut}>{r.message}</SayThis>}
       <label className="checkbox"><input type="checkbox" checked={guardian} onChange={(e) => setGuardian(e.target.checked)} /> {t.lead.guardian}</label>
       <label>{t.lead.note}<textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} /></label>
       <label className="checkbox"><input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} /> {t.lead.agreed}</label>

@@ -3,10 +3,11 @@
 import type { ReactNode } from "react";
 import { t } from "../strings";
 
-export function SayThis({ children }: { children: ReactNode }) {
+// label: "Say:" for words the volunteer says; "Read this to them:" for a message someone else wrote.
+export function SayThis({ children, label = t.say }: { children: ReactNode; label?: string }) {
   return (
-    <aside className="say-this" aria-label={t.say}>
-      <strong>{t.say}</strong> “{children}”
+    <aside className="say-this" aria-label={label}>
+      <strong>{label}</strong> “{children}”
     </aside>
   );
 }

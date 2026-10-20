@@ -247,3 +247,22 @@ README counts now match the reunion tests. Local commands use subshells so runni
 **Verification:** PowerPoint OOXML validation against the original passed. Exported with LibreOffice and inspected all 16 rendered slides; re-rendered after replacing the missing comparison symbols. Application files are unchanged; the preceding validation remains 155 SQL checks, 52 backend tests and 26 frontend tests passing, frontend lint 0 errors (2 existing warnings), production build passing.
 
 **Independent review:** GPT-6-astra found no material accuracy issues in the changed claims. Its two README suggestions (JDK 21 prerequisite and separate terminal for Vite) were applied. Latest rendered slides include the comparison-cell corrections; earlier montage images were stale.
+
+## UI polish (after 1.0.0): less to think about, nothing oddly placed
+
+**Why:** a review of every screen at tablet (820) and laptop (1280) width, by a Sonnet agent, from two angles: a child or exhausted person, and a designer who wants clean alignment. It found layout faults on every screen and three places where the screen said too much.
+
+**Fixed** (`styles/tokens.css` rewritten around three tokens, `--gap`, `--column` and `--line`, plus small JSX changes):
+- Big buttons: the label is centered instead of stuck to the top of the box.
+- Radios and tick boxes sit beside their words, centered on one or two lines. Before, they sat centered **above** the words, because `.stack label` (higher specificity) overrode `.choice-card`.
+- One spacing rhythm: browser default margins removed, every gap comes from `--gap`, and one heading scale.
+- Buttons in one column are one width; confirm prompts are a row.
+- Answer and match cards get inner spacing; nothing touches any more.
+- The lock screen and code keypad are laid out properly (they had no CSS).
+- Inputs, text boxes and buttons use the page font; the message box was monospace.
+- Every `role="alert"` is red and bold, including login and unlock errors.
+- The slip looks like a slip on screen too, with a large code and PIN.
+- The top bar shares the content column's edges; the bottom has room, so the Netlify badge covers nothing.
+- **Less to read:** the privacy question is shown once (it was the heading, a "Say:" box and the legend). A searcher's message is labelled "Read this to them:", not "Say:". The age step says "you" throughout.
+
+**Checked:** measured at 820 px, the top bar text, content, button edges and card radios line up (edges 50 / 770 px; radio center = card center). `npm run lint` 0 errors · `npm test` 26 passed · `npm run build` passed.

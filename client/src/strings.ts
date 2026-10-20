@@ -31,7 +31,7 @@ export const t = {
     saving: "Saving…",
     otherNames: "Other names or nicknames (optional). Separate them with commas.",
     age: "Age. A guess is fine; leave it empty if nobody knows.",
-    minor: { question: "Are they under 18?", yes: "Under 18", no: "18 or over", unsure: "Not sure" },
+    minor: { question: "Are you under 18?", yes: "Under 18", no: "18 or over", unsure: "Not sure" },
     yes: "Yes",
     no: "No",
     homeArea: "Where are they from? (town or area)",

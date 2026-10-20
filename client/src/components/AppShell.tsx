@@ -12,6 +12,7 @@ function LockScreen({ onUnlock }: { onUnlock: (pin: string) => Promise<boolean> 
     <main className="lock-screen">
       <h1>{t.lock.title}</h1>
       <form
+        className="stack"
         onSubmit={async (e) => {
           e.preventDefault();
           try {

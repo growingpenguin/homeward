@@ -180,9 +180,9 @@ unknown field "ssn"                    → {"message":"Something in this form is
 
 **Done** (`match/` package):
 - `POST /api/searches` `{id, searcherPersonId, soughtNames, ageMin, ageMax, relationship, lastKnownPlace}`: the person searching is registered first with the existing `POST /api/persons` (same id rules, slip, privacy choice), and must be at this desk. Re-sent form (same id) → 200, new → 201. Matching runs, audit `SEARCH`.
-- `GET /api/searches/{id}` ("Check again"): own desk only (else 404), runs matching again so someone registered later still gets suggested; never the same person twice (UNIQUE).
-- `POST /api/searches/{id}/requests` `{personId, message}`: only a person this search suggested **and** matching may still find; marks the suggestion confirmed, saves the message on the search, makes a `pending` contact request (a re-send returns the same one), audit `CONTACT_REQUEST`.
-- `MatchingService`: `0.6 × spelling + 0.15 per sound-alike word (max 2) + 0.2 nickname + 0.1 right age − 0.15 wrong age`, suggestions from 0.35, top 10; reasons in plain words ("name spelled like…", "name sounds like…", "a nickname matches…", "age fits (about 80)", "a child: a lead decides before anything is shared"). Never suggests the searcher to themselves.
+- `GET /api/searches/{id}`: own desk only (else 404); it only reads. `POST /api/searches/{id}/check` ("Check again") runs matching again so someone registered later still gets suggested; never the same person twice (UNIQUE).
+- `POST /api/searches/{id}/requests` `{personId, message}`: only a person this search suggested **and** matching may still find; marks the suggestion confirmed, makes a `pending` contact request that holds the message (`V5__request_message.sql`) (a re-send returns the same one), audit `CONTACT_REQUEST`.
+- `MatchingService`: `0.6 × spelling + 0.15 per sound-alike word (max 2) + 0.3 nickname + 0.1 right age − 0.15 wrong age`, suggestions from 0.3, top 10; reasons in plain words ("name spelled like…", "name sounds like…", "a nickname matches…", "age fits (about 80)", "a child: a lead decides before anything is shared"). Never suggests the searcher to themselves.
 - `MatchCard` has **no** shelter, home area, phone, description or paper fields, and cards are read **through** `search_candidates`, so someone hidden or protected after being suggested drops out.
 - `isMinor` named once in the OpenAPI (`@get:`/`@param:JsonProperty`), the F0 note.
 

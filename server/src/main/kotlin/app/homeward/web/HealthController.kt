@@ -11,5 +11,5 @@ class HealthController(
     private val schema: SchemaVersionCheck,
 ) {
     @GetMapping("/api/health")
-    fun health(): Map<String, Any> = mapOf("status" to "ok", "schemaVersion" to schema.databaseVersion())
+    fun health(): Map<String, Any> = mapOf("status" to "ok", "schemaVersion" to schema.checkedVersion)
 }

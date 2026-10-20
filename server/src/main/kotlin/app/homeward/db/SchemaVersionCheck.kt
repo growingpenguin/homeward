@@ -27,12 +27,20 @@ class SchemaVersionCheck(
 
     fun databaseVersion(): Int =
         jdbc
-            .sql("SELECT coalesce(max(version::int), 0) FROM flyway_schema_history WHERE success")
+            // Migrations use whole-number versions only (V1, V2, ...); anything else is ignored, never crashes the cast.
+            .sql("SELECT coalesce(max(version::int), 0) FROM flyway_schema_history WHERE success AND version ~ '^[0-9]+$'")
             .query(Int::class.java)
             .single()
 
+    // The version seen at startup; /api/health reports this instead of querying the database
+    // on every call (frequent health checks would keep Neon awake and use its free hours).
+    // (Not `private set`: the Spring plugin makes this class open, and open properties can't have one.)
+    @Volatile
+    var checkedVersion: Int = 0
+
     override fun run(args: ApplicationArguments) {
         val actual = databaseVersion()
+        checkedVersion = actual
         check(actual >= expectedVersion) {
             "Database schema is at version $actual but this build needs $expectedVersion. " +
                 "Run scripts/db-migrate.sh migrate first."

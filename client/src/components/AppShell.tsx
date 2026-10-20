@@ -1,6 +1,7 @@
 // components/AppShell.tsx
 // When locked, the lock screen REPLACES the app: every page, form and person on screen is unmounted.
 import { useState, type ReactNode } from "react";
+import { HttpError } from "../api/http";
 import { useIdleLock } from "../hooks/useIdleLock";
 import { t } from "../strings";
 
@@ -15,8 +16,9 @@ function LockScreen({ onUnlock }: { onUnlock: (pin: string) => Promise<boolean> 
           e.preventDefault();
           try {
             setProblem((await onUnlock(pin)) ? null : t.lock.wrong);
-          } catch {
-            setProblem(t.lock.noConnection);   // the backend couldn't be reached: say so, stay locked
+          } catch (err) {
+            // "Too many tries" comes back as a plain sentence; anything else: the backend couldn't be reached.
+            setProblem(err instanceof HttpError && err.status < 500 ? err.message : t.lock.noConnection);
           } finally {
             setPin("");                        // never leave a PIN sitting in the box
           }
@@ -33,7 +35,13 @@ function LockScreen({ onUnlock }: { onUnlock: (pin: string) => Promise<boolean> 
   );
 }
 
-export function AppShell({ verifyPin, children }: { verifyPin: (pin: string) => Promise<boolean>; children: ReactNode }) {
-  const { locked, unlock } = useIdleLock(verifyPin);
+type ShellProps = {
+  verifyPin: (pin: string) => Promise<boolean>;
+  stillHere: () => Promise<unknown>;
+  children: ReactNode;
+};
+
+export function AppShell({ verifyPin, stillHere, children }: ShellProps) {
+  const { locked, unlock } = useIdleLock(verifyPin, stillHere);
   return locked ? <LockScreen onUnlock={unlock} /> : <>{children}</>;
 }

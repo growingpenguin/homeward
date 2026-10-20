@@ -1,4 +1,5 @@
--- V1__init.sql: tested on local PostgreSQL 15 (2026-10-19). Re-test on Neon's version before deploying (see DATABASE.md, Open items).
+-- full_schema_draft.sql: the complete tested schema (was V1__init.sql). NOT a migration: Flyway never reads this folder.
+-- It is split into db/migration/V1..V3 step by step (DATABASE_PLAN.md) and used to prove the split changes nothing.
 CREATE EXTENSION IF NOT EXISTS pg_trgm;        -- similar spelling
 CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;  -- sounds alike (dmetaphone)
 CREATE EXTENSION IF NOT EXISTS unaccent;       -- "José" matches "Jose"

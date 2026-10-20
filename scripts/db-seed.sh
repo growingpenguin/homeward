@@ -10,5 +10,6 @@ env = dict(l.split("=", 1) for l in open(".env.local").read().splitlines() if "=
 print(env["DATABASE_URL_UNPOOLED"].strip().strip('"').strip("'"))
 PY
 )"
-docker run --rm -i -e URL="$URL" postgres:18.6 sh -c 'psql "$URL" -X -q -v ON_ERROR_STOP=1' < server/src/main/resources/db/seed/demo_seed.sql
+export URL   # passed by name below, so the password never appears on a command line (ps)
+docker run --rm -i -e URL postgres:18.6 sh -c 'psql "$URL" -X -q -v ON_ERROR_STOP=1' < server/src/main/resources/db/seed/demo_seed.sql
 echo "demo seed applied"

@@ -74,3 +74,9 @@
 - Changed/rejected: Codex initially expected a requested card to disappear after a flag; that would expose the change. The test now respects retained cards and checks fresh-search exclusion plus Active status. No production code changed. Both new tests were deliberately broken once and observed failing before restoration.
 - Review: Claude CLI was at its session limit; a separate GPT-6-astra reviewer found no actionable issues in the tests. That review was read-only, and the test runs were performed by the implementing agent.
 - Learned: a plausible negative assertion can contradict an intentional privacy guarantee. Read the earlier review decisions before treating a mismatch as a bug.
+
+## 2026-10-20: Bringing the submission documents up to date
+- Asked: update the design deck to what was built and prepare the release.
+- Kept: the existing 16-slide design, updated live links, migration versions, actual classes/packages and tested behavior. README commands now work independently from the repository root.
+- Changed/rejected: removed claims that the blank paper form or real-person usability testing was complete. The first render dropped emoji-only comparison cells, so those now use explicit text. Corrected the overbroad claim that no searcher reply can contain a location: Connected intentionally carries the agreed contact plan.
+- Learned: validate the PowerPoint structure and inspect its rendered slides; either check alone can miss an unusable result.

@@ -167,6 +167,24 @@ Westfield (Casey): son's code + PIN → POST /api/lookup 200 → turn the screen
                    "They want to connect. Here's how: | Call the Eastside desk (555-0102) and ask for Esperanza …"
 ```
 
+**Review** (`/code-review`; each finding checked against the code and the backend):
+
+| # | Finding | Fix |
+|---|---|---|
+| 1 | A slip check stayed open on the server (10 min) when the volunteer left via "Answer now", the lock or Home: the next person at the desk could see / answer the previous person's requests | Leaving the screen in any way calls `/api/lookup/end`; "Answer now" shows **only that person's** requests in place (`personId` added to the lookup reply) |
+| 2 | The searcher's view sat inside the staff layout (volunteer's name, "Log out" reachable) | Drawn over the whole page (portal) and the app behind it is made `inert` |
+| 3 | A child's card still had "Safe", "Not now", "Say no" | No answer buttons at all when a child is involved; test |
+| 4 | The instruction "Don't say whether anyone is here" was inside the read-aloud quote | Instruction shown as an instruction; only "We'll ask, and let you know." is read out; test |
+| 5 | Fixing the searcher's name after "Back" was silently ignored (same id) | After the first save it's an edit (`PUT`) |
+| 6 | A search saved with a lost reply, then changed, got 409 with no way out | On that 409 a new search id is made and the search runs once more |
+| 7 | The adult question could be skipped (→ counted as a child, every request waits for a lead) | Must be answered; test |
+| 8 | The lock kept finished searches (names, match cards) in memory | Lock also removes finished mutations; only saves waiting for the internet stay |
+| 9 | "Answer now" listed every request at the desk next to the slip holder's | Covered by #1 |
+| 10 | If only the refresh after "Send the request" failed, the card looked failed | Saved request shows "Asked" at once; the refresh runs in the background |
+| + | Age text written in the component; the PIN sent to `/api/lookup` was never checked by a test | Moved to `strings.ts`. **The new test caught a real bug:** the lookup sent an **empty PIN** (the box was emptied before the request read it; the earlier browser run passed by timing luck). Code and PIN are now passed to the request as values |
+
+**After the fixes:** `npm run lint` 0 errors · `npm test` **21 passed**.
+
 ## F4. Lead page
 
 **Branch:** `feature/frontend-lead` (on top of F3).

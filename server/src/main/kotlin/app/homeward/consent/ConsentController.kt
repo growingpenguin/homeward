@@ -27,6 +27,7 @@ data class LookupIn(
 data class LookupOut(
     val found: Boolean,
     val message: String?,
+    val personId: UUID?, // whose slip it is, so the desk shows only THEIR requests
     val personName: String?, // the slip holder's own name, to greet them
     val searches: List<SearchAnswer>, // their own searches, each answer from VisibilityService
     val answersWaiting: Int, // requests from people looking for THEM, to answer now
@@ -65,13 +66,20 @@ class ConsentController(
         request.getSession(false)?.removeAttribute(VerifiedPerson.SESSION_KEY)
         val personId =
             codes.lookup(body.code!!, body.pin!!, currentStaff.get()) // !!: validated as not blank
-                ?: return LookupOut(false, "That code and PIN didn't match. Please check the slip and try again.", null, emptyList(), 0)
+                ?: return LookupOut(
+                    false,
+                    "That code and PIN didn't match. Please check the slip and try again.",
+                    null,
+                    null,
+                    emptyList(),
+                    0,
+                )
         request.session.setAttribute(VerifiedPerson.SESSION_KEY, VerifiedPerson(personId, Instant.now().plusSeconds(600)))
         val searches =
             requests.searchesBy(personId).map { (id, names) ->
                 SearchAnswer(id, names, visibility.statusForSearcher(id, personId))
             }
-        return LookupOut(true, null, requests.personName(personId), searches, requests.waiting(null, personId).size)
+        return LookupOut(true, null, personId, requests.personName(personId), searches, requests.waiting(null, personId).size)
     }
 
     // Done with this person ("Give the screen back"): their slip no longer opens anything here.

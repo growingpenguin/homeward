@@ -78,7 +78,9 @@ export const t = {
     searching: "Searching…",
     results: "Possible matches",
     none: "No match yet. The search is saved: someone registered later can still be found.",
-    sayNoLocation: "Don't say whether anyone is here. Say: \"We'll ask, and let you know.\"",
+    dontSay: "Don't say whether anyone is here.",
+    sayInstead: "We'll ask, and let you know.",
+    about: (age: number) => `about ${age}`,
     reasons: "Why this might be them:",
     child: "A child: a lead decides before anything is shared.",
     choose: "Ask this person",
@@ -88,6 +90,7 @@ export const t = {
     done: "Done: print their slip",
     checkAgain: "Check again",
     missingName: "Please write the name of the person who is looking.",
+    missingAdult: "Please answer: is the person looking 18 or over?",
   },
   answers: {
     title: "Answers waiting",

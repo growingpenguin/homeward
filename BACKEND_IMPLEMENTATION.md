@@ -82,6 +82,10 @@ Result: `./gradlew build` → `BUILD SUCCESSFUL`, 6 tests, 0 failed; `scripts/db
 
 **Bug found and fixed:** `SchemaVersionCheck` was an `ApplicationRunner`, and Spring Boot **already accepts requests while runners are still running**. So for a moment the app served traffic before the schema check finished (and health said version 0). It now runs while the app starts (`@Lazy(false)` + `InitializingBean`), **before** the web server accepts any request: an older schema stops the app before it serves anything. Tests updated (`verify()`), `./gradlew build` green.
 
+**Review:** `/code-review` (Codex still unavailable): no serious issues. One minor note outside this diff: in `scripts/db-migrate.sh`, `grep -v` with `pipefail` could fail a successful run if every output line were filtered; logged for after the deadline.
+
+**Release:** `release/0.1.0` (version bumped to `0.1.0`) → PR into `main` → tag `v0.1.0` → merged back into `develop`.
+
 ## B2. Login and security
 
 _Not started._

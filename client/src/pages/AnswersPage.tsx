@@ -68,7 +68,7 @@ function Answer({ request: r }: { request: WaitingRequest }) {
       ) : (
         <BigButton label={t.answers.connect(searcher)} onClick={() => setConnecting(true)} />
       )}
-      {!connecting && (
+      {!connecting && !r.childInvolved && (
         <div className="stack">
           <BigButton label={t.answers.safe(searcher)} onClick={() => decide.mutate("SAFE")} disabled={decide.isPending} />
           <button type="button" onClick={() => decide.mutate("NOT_NOW")} disabled={decide.isPending}>{t.answers.notNow}</button>

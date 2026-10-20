@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
@@ -62,7 +62,9 @@ test("search: the person looking is registered, cards show reasons (no place), a
   await user.type(await screen.findByLabelText(/Name or names/), "Rosa Dias");
   await user.click(screen.getByRole("button", { name: "Search" }));
   expect(await screen.findByText("name sounds like Rosa Diaz")).toBeInTheDocument();
-  expect(screen.getByText(/Don't say whether anyone is here/)).toBeInTheDocument();
+  expect(screen.getByText("Don't say whether anyone is here.")).toBeInTheDocument();
+  expect(screen.getByLabelText("Say:")).toHaveTextContent("We'll ask, and let you know.");
+  expect(screen.getByLabelText("Say:")).not.toHaveTextContent("Don't say");
   await user.click(screen.getByRole("button", { name: "Ask this person" }));
   await user.type(screen.getByLabelText(/A message for them/), "Your son Luis is looking for you.");
   await user.click(screen.getByRole("button", { name: "Send the request" }));
@@ -89,6 +91,9 @@ test("answers: Connect first shows what will be shared; a child goes to a lead",
   expect(sent.find((s) => s.path === "/api/requests/r1/decision")!.body).toEqual({ choice: "CONNECT", contactPlan: "Call the Eastside desk and ask for Rosa" });
   expect(screen.getByText(/A child is involved, so a lead decides/)).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Connect with Tom/ })).not.toBeInTheDocument();
+  // A child's card has no answer buttons at all: a lead decides everything.
+  const childCard = screen.getByText(/A child is involved, so a lead decides/).closest("article")!;
+  expect(within(childCard).queryAllByRole("button")).toHaveLength(0);
 });
 
 test("check a code: a miss gets the plain sentence; a match turns the screen around, fresh, then ends the check", async () => {

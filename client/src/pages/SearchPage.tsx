@@ -100,7 +100,8 @@ export function SearchPage({ staffId }: { staffId: string }) {
     return (
       <div className="stack">
         <h2>{t.search.results}</h2>
-        <SayThis>{t.search.sayNoLocation}</SayThis>
+        <p><strong>{t.search.dontSay}</strong></p>
+        <SayThis>{t.search.sayInstead}</SayThis>
         {result.matches.length === 0 && <p role="status">{t.search.none}</p>}
         {result.matches.map((m) => (
           <MatchCardView key={m.personId} searchId={result.searchId} card={m} onSent={setResult} />
@@ -156,15 +157,17 @@ function MatchCardView({ searchId, card, onSent }: { searchId: string; card: Mat
     mutationFn: () =>
       api<unknown>(`/api/searches/${searchId}/requests`, { method: "POST", body: { personId: card.personId, message }, userAction: true }),
     retry: worthRetrying,   // safe to repeat: one request per search and person
-    onSuccess: async () => onSent(await api<SearchResult>(`/api/searches/${searchId}`)),
+    // The request is saved: refresh the cards in the background. If only the refresh fails,
+    // the card still shows "Asked" (it never looks like the request failed).
+    onSuccess: () => void api<SearchResult>(`/api/searches/${searchId}`).then(onSent).catch(() => {}),
   });
   return (
     <article className="match-card">
-      <h3>{card.preferredName}{card.approxAge !== null ? ` (about ${card.approxAge})` : ""}</h3>
+      <h3>{card.preferredName}{card.approxAge !== null ? ` (${t.search.about(card.approxAge)})` : ""}</h3>
       <p>{t.search.reasons}</p>
       <ul>{card.reasons.map((r) => <li key={r}>{r}</li>)}</ul>
       {card.child && <p><strong>{t.search.child}</strong></p>}
-      {card.requested ? (
+      {card.requested || send.isSuccess ? (
         <p role="status">{t.search.requested}</p>
       ) : open ? (
         <div className="stack">

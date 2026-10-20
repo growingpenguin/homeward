@@ -131,6 +131,23 @@ class PersonApiTest : IntegrationTest() {
     }
 
     @Test
+    fun `a name of only spaces is refused, and one over 100 characters gets a plain sentence`() {
+        val s = loggedIn()
+        for (blank in listOf("", "   ", "\\t \\n")) {
+            register(s, """{"id":"${UUID.randomUUID()}","preferredName":"$blank"}""").andExpect {
+                status { isBadRequest() }
+                jsonPath("$.message") { value("Please write a name or nickname.") }
+            }
+        }
+        register(s, """{"id":"${UUID.randomUUID()}","preferredName":"${"A".repeat(101)}"}""").andExpect {
+            status { isBadRequest() }
+            jsonPath("$.message") { value("Please use a shorter name.") }
+        }
+        // Exactly 100 is fine.
+        register(s, """{"id":"${UUID.randomUUID()}","preferredName":"${"B".repeat(100)}"}""").andExpect { status { isCreated() } }
+    }
+
+    @Test
     fun `errors are plain sentences`() {
         val s = loggedIn()
         register(s, """{"id":"${UUID.randomUUID()}","preferredName":"   "}""").andExpect {

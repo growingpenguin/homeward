@@ -408,7 +408,7 @@ class ConsentApiTest : IntegrationTest() {
         val (connectedSearch, connectedReq) = requested(alex, person(riley, "Gwendolyn Ashcombe", located), "Gwendolyn Ashcombe", son)
         post(riley, "/api/requests/$connectedReq/decision", """{"choice":"CONNECT","contactPlan":"Call the Eastside desk"}""")
             .andExpect { status { isNoContent() } }
-        val (safeSearch, safeReq) = requested(alex, person(riley, "Evander Pimblett", located), "Evander Pimblett", son)
+        val (safeSearch, safeReq) = requested(alex, person(riley, "Percival Pimblett", located), "Percival Pimblett", son)
         post(riley, "/api/requests/$safeReq/decision", """{"choice":"SAFE"}""").andExpect { status { isNoContent() } }
         val (pendingSearch, _) = requested(alex, person(riley, "Hortensia Bellweather", located), "Hortensia Bellweather", son)
         val noMatchSearch = searchFor(alex, son, "Nobody Bythisname")

@@ -67,7 +67,20 @@ Result: `./gradlew build` → `BUILD SUCCESSFUL`, 6 tests, 0 failed; `scripts/db
 
 ## B1. First deploy (skeleton)
 
-_Not started._
+**Date:** 2026-10-20 · **Branch:** `feature/backend-deploy` → PR into `develop` → `release/0.1.0` → `main`
+
+**Done**
+- `server/Dockerfile`: multi-stage (`eclipse-temurin:21-jdk` builds the jar, `eclipse-temurin:21-jre` runs it as a non-root user), `-XX:MaxRAMPercentage=75 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k`. Tests aren't run inside the image build (they need Docker); they run before pushing. `.dockerignore` keeps the draft, the seed and the tests out. The plain (non-Boot) jar is disabled so only one jar exists.
+- `render.yaml`: web service `homeward-api` from `server/`, Docker, free plan, region **ohio** (same AWS region as Neon, us-east-2), deploys **`main`** only, health check `/api/health`. `DB_USER=homeward_app`; `DB_URL` and `DB_PASSWORD` are `sync: false` (typed into Render, never in git).
+
+**Local check of the image, run like Render** (`docker run --memory=512m`, against Neon as `homeward_app`, credentials through a temporary owner-only env file):
+
+| Run | Result |
+| --- | --- |
+| First run | healthy after 1.3 s, **but `{"schemaVersion":0}`** |
+| After the fix | first healthy response after 1.9 s: `{"status":"ok","schemaVersion":2}`; `Started HomewardApplicationKt in 1.469 seconds`; memory **187 MB / 512 MB** |
+
+**Bug found and fixed:** `SchemaVersionCheck` was an `ApplicationRunner`, and Spring Boot **already accepts requests while runners are still running**. So for a moment the app served traffic before the schema check finished (and health said version 0). It now runs while the app starts (`@Lazy(false)` + `InitializingBean`), **before** the web server accepts any request: an older schema stops the app before it serves anything. Tests updated (`verify()`), `./gradlew build` green.
 
 ## B2. Login and security
 

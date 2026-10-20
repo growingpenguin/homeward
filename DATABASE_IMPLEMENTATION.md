@@ -222,7 +222,17 @@ Result after fixes: `02_seed.sql: 5 passed`, `03_registration.sql: 18 passed`, `
 
 ## Step 4. Safe matching (`V3__safe_matching.sql`)
 
-_Not started._
+**Branch:** `feature/db-matching` · planned in plan mode together with step 5, B4–B5 and F3–F4 (approved 2026-10-20).
+
+**Done:**
+- `V3__safe_matching.sql` cut from the draft (sections copied verbatim, by line range): `safety_flags` (+ lock trigger, no-reactivate), `search_candidates` view, `nicknames`, `match_candidates`, `find_candidates`, grants.
+- **Fix 1 (setup review, Codex P2): age counts before the 100-candidate cut.** The rough order now adds `+0.5` when the age fits and `−0.5` when it doesn't (unknown age = no change). DATABASE.md's excerpt and text updated; a script checked every quoted line still exists in V3.
+- **Fix 2 (step 3 review, deferred): a handed-out slip stays with its person.** Trigger `reunion_codes_keep_person`: once `person_id` is set it can't change (to someone else or back to blank); a pre-printed slip can still be handed out once.
+- Demo seed: **200 fictional people** (made-up first + last name combinations; accents, lower case, nicknames, every 9th age unknown, all three privacy choices, mostly "ask"; spread over the 3 shelters), fixed ids, `DO NOTHING` so demo registrations are never overwritten.
+
+**Tests:** `scripts/db-test.sh` → **all passed**; new `04_matching.sql` **27 passed** (as `homeward_app`): misspelling, no accents, sound-alike, nickname · age signal only when both sides know one · hidden adult, hidden child, `do_not_disclose` (even when findable) and departed people never found · the view has no location columns, `find_candidates` returns only 6 signal columns · crowded name · flags: lift allowed, re-activate / rewrite / delete / "about nobody" refused, lifted flag makes the person findable again · same match twice and score > 1 refused · slip can't move. `02_seed.sql` now 7 (200 people, stored once after two runs, spread as described).
+
+**Test problem found and fixed:** the crowded-name test first passed **even with the old ordering**, because the 80-year-old's test id `00000000-…409` sorts before every random id, so the id tie-break brought her in anyway. Her id now sorts last (`ffffffff-…`); with the old ordering the test fails (`FAIL: crowded name: Maria Garcia aged 80 comes back first for 75-85`), with the fix it passes. Checked both ways before committing.
 
 ## Step 5. Consent and protection (`V4__consent_and_protection.sql`)
 

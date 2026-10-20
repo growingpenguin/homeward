@@ -123,7 +123,7 @@ export const t = {
   },
   lead: {
     title: "Lead page",
-    open: "Lead page: children, flags, lost slips",
+    open: "Lead page: children and safety flags",
     children: "Children waiting for a lead",
     noChildren: "No child is waiting.",
     guardian: "I checked the guardian (e.g. the child recognised them, details match)",

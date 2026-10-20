@@ -20,3 +20,11 @@ test("the paper date stays the same calendar day", () => {
   const f = registerSchema.parse({ ...base, fromPaper: true, paperRef: "Sheet 3, line 12", paperDate: "2026-03-05" });
   expect(toRegisterRequest("00000000-0000-0000-0000-000000000001", f).recordedAt).toBe("2026-03-05T12:00:00Z");
 });
+
+test("the form's child rule matches the database (V6): an estimated age under 21 is a child", async () => {
+  const { mayBeChild } = await import("./registerSchema");
+  expect(mayBeChild(false, 19)).toBe(true);    // "18 or over" but an estimated 19: a lead decides
+  expect(mayBeChild(undefined, 21)).toBe(false);
+  expect(mayBeChild(false, undefined)).toBe(false);
+  expect(mayBeChild(undefined, undefined)).toBe(true);   // nothing known: a child until someone says otherwise
+});

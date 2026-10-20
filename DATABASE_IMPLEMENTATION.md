@@ -269,6 +269,24 @@ find_candidates                      (age before the 100-candidate cut, step 4 f
 + staff_login_name index              (V2, from the backend plan)
 ```
 Every table, constraint, view, other function, trigger and grant is identical.
+(This comparison was made before the review fixes below; those are tightenings, all listed here.)
+
+**Review** (`/code-review`; each finding checked against the SQL; the new block-path test was proven by removing that branch of the trigger → `FAIL: a flag on the SEARCH added after a reveal blocks it`, then restored):
+
+| # | Finding | Result |
+|---|---|---|
+| 1 | **The child check trusts `staff.role`, and the app could UPDATE `staff`**: promote a volunteer to lead, release a child, set it back | **Fixed:** `REVOKE INSERT, UPDATE ON staff FROM homeward_app` (the backend never writes staff); tests |
+| 2 | Opposite lock order (Connect vs. age correction / new flag) can deadlock | Fails safe (PostgreSQL aborts one, nothing leaks). **B5:** the service retries once on a deadlock |
+| 3 | Flag on the search / on the searcher **after** a reveal: untested | **Fixed:** both tested |
+| 4 | The port dropped the "connected before" preconditions | **Fixed:** restored |
+| 5 | "Flag with two subjects" and "custody-hold child still matchable" not ported | **Fixed** (in `04_matching.sql`) |
+| 6 | Checks print nothing (so pass) when the row is missing | **Fixed:** every state check reads the row as a value |
+| 7 | No test that a lead's sign-off can't be erased from a connected child request | **Fixed:** tested |
+| 8 | App had UPDATE on every column of `contact_requests` | **Fixed:** only `state, contact_plan, approved_by, guardian_checked, note, decided_at`; backdating tested |
+| 9 | A flag inserted already lifted still blocked reveals (the guard ignores it) | **Fixed:** the blocking trigger skips it, same as the guard; tested |
+| 10 | Trigger functions executable by PUBLIC | **Fixed** for V3 and V4 functions; tested |
+
+**After the fixes:** `05_protection.sql` **36 passed**; `scripts/db-test.sh` all passed; `./gradlew build` 31 tests, 0 failed.
 
 ## Step 6. Full reunion test (database side)
 

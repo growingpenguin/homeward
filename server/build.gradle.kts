@@ -58,6 +58,11 @@ tasks.withType<Test> {
     }
 }
 
+// Only the runnable Spring Boot jar is needed (the Dockerfile copies it).
+tasks.jar {
+    enabled = false
+}
+
 // The draft and the demo seed are for tests and scripts, not for the app.
 tasks.processResources {
     exclude("db/draft/**", "db/seed/**")

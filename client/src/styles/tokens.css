@@ -1,0 +1,15 @@
+/* styles/tokens.css: the sizes and colors every screen uses */
+:root {
+  --tap-min: 48px;          /* smallest thing you can press, in both directions */
+  --text: 18px;             /* readable without glasses */
+  --ink: #1a1a1a;           /* near-black on white: strong contrast */
+  --paper: #ffffff;
+  --focus: #1c7293;         /* a thick, visible focus ring for keyboard users */
+}
+body { margin: 0; color: var(--ink); background: var(--paper); font-family: system-ui, sans-serif; font-size: var(--text); line-height: 1.5; }
+button, input, select, textarea { min-height: var(--tap-min); min-width: var(--tap-min); font-size: var(--text); }
+.big-button { display: flex; flex-direction: column; width: 100%; min-height: calc(var(--tap-min) * 1.5); }
+.choice-card { display: flex; flex-direction: column; gap: 4px; min-height: var(--tap-min); padding: 12px 16px; }
+.keypad { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--tap-min), 1fr)); gap: 8px; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+main { max-width: 720px; margin: 0 auto; padding: 16px; }

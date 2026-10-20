@@ -102,9 +102,9 @@ cd server && ./gradlew ktlintFormat  # fix formatting
 # frontend (from client/)
 npm install
 npm run dev                  # Vite dev server, proxies /api to :8080
-npm run gen:api              # regenerate src/api/schema.ts from the running backend's OpenAPI
+npm run gen:api              # regenerate src/api/schema.ts from the running backend's OpenAPI (API_URL to override)
 npm test                     # Vitest
-npm run lint                 # eslint + tsc --noEmit
+npm run lint                 # oxlint + tsc
 npm run build                # production build for Netlify
 ```
 

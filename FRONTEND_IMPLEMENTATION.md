@@ -122,6 +122,26 @@ Next person → paper mode → Next without details: both paper sentences shown 
 stored: source paper, paperRef "Sheet 2, line 7", recordedAt 2026-10-18T12:00:00Z → next form opens in paper mode with the date kept
 ```
 
+**Review** (`/code-review`; all 10 checked against the code, all real):
+
+| # | Finding | Fix |
+|---|---|---|
+| 1 | **Paper mode: the next form kept the saved person's record id** (the reset went into state, but the page closed before the draft was written), so the next person was answered with the first one and never stored. The real run above only checked the date and the step, so it missed this | `useDraft.reset()` writes the next form straight to storage; test: the next form has a new id and no name |
+| 2 | A re-send after a lost reply, with changes made in between, got the first version back (200) and looked saved | The reply is compared with what was sent; if it differs, Edit opens with "already saved earlier, check the details"; test |
+| 3 | "Is an adult from their family with them?" had **Yes** picked in advance | Nothing picked; required for a known child (marked under 18 or age under 18); optional when nothing is known about the age, so only the name stays required; test |
+| 4 | "Not sure" (`undefined`) made the radio jump back to the starting value on Edit | "Not sure" is `null` |
+| 5 | A hidden "adult with them" answer was still sent for an adult | Sent as false whenever they can't be a child (`unaccompaniedToSend`) |
+| 6 | Drafts stayed when the session ended (only Log out cleared them) | Cleared whenever the session ends |
+| 7 | A save that finished after leaving the page (e.g. back online) could jump to another screen | Callbacks on `mutate()`, so they only run while the page is open |
+| 8 | Back to the slip after printing showed "Print a slip" again (→ 409) | The cached person is marked `hasSlip` |
+| 9 | Check step didn't show the "adult with them" answer or the paper fields | Added |
+| 10 | A new UUID made on every render; the id could change between retries if a draft had none | Initial form and id made once (`useState`) |
+
+FRONTEND.md updated (the two schema lines).
+
+**After the fixes:** `npm run lint` 0 errors · `npm test` **17 passed** · `npm run build` passed.
+**Real run again** (paper mode, Volunteer Casey, Westfield): two forms in a row, "Ines Marlowe" and "Bao Castellanos" → `POST /api/persons` **201, 201** with **2 different ids**; the third form opens empty.
+
 ## F3–F4
 
 _Not started (planned in plan mode with DB steps 4–5 and B4–B5)._

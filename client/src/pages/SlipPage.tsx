@@ -1,5 +1,6 @@
 // pages/SlipPage.tsx
 // After saving: print the slip with the code and PIN. The PIN is shown once and kept nowhere else.
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { api } from "../api/client";
@@ -27,6 +28,7 @@ export function SlipPage({ isLead = false }: { isLead?: boolean }) {
     mutationFn: () => api<unknown>("/api/lead/flags", { method: "POST", body: { personId: id, kind: "do_not_disclose" }, userAction: true }),
   });
   const printed = slip.data ?? reprint.data;
+  const [confirming, setConfirming] = useState<"reprint" | "protect" | null>(null);   // both ask first
 
   if (!person.data) return person.isError ? <p role="alert">{person.error.message}</p> : null;
   const failed = slip.error ?? reprint.error ?? protect.error;
@@ -55,9 +57,28 @@ export function SlipPage({ isLead = false }: { isLead?: boolean }) {
       {problem && <p role="alert" className="problem">{problem}</p>}
       {isLead && !printed && (
         <div className="stack no-print">
-          {person.data.hasSlip && <button type="button" onClick={() => reprint.mutate()} disabled={reprint.isPending}>{t.lead.reprint}</button>}
-          {protect.isSuccess ? <p role="status">{t.lead.protected}</p> : (
-            <button type="button" onClick={() => protect.mutate()} disabled={protect.isPending}>{t.lead.protect}</button>
+          {confirming === "reprint" ? (
+            <p role="alert">
+              {t.lead.reprintConfirm}{" "}
+              <button type="button" onClick={() => reprint.mutate()} disabled={reprint.isPending}>{t.lead.yesReprint}</button>{" "}
+              <button type="button" onClick={() => setConfirming(null)}>{t.lead.cancel}</button>
+            </p>
+          ) : confirming === "protect" ? (
+            <p role="alert">
+              {t.lead.protectConfirm}{" "}
+              <button type="button" onClick={() => protect.mutate(undefined, { onSuccess: () => setConfirming(null) })} disabled={protect.isPending}>
+                {t.lead.yesProtect}
+              </button>{" "}
+              <button type="button" onClick={() => setConfirming(null)}>{t.lead.cancel}</button>
+            </p>
+          ) : (
+            <>
+              {person.data.hasSlip && <button type="button" onClick={() => setConfirming("reprint")}>{t.lead.reprint}</button>}
+              {/* Pressing it again later is harmless: the backend keeps one flag. */}
+              {protect.isSuccess ? <p role="status">{t.lead.protected}</p> : (
+                <button type="button" onClick={() => setConfirming("protect")}>{t.lead.protect}</button>
+              )}
+            </>
           )}
         </div>
       )}

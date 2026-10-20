@@ -2,11 +2,14 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
+import { render as rtlRender } from "@testing-library/react";
 import { afterEach, beforeEach } from "vitest";
 import { queryClient } from "../api/queryClient";
 import { fakeBackend } from "../test/fakeFetch";
 import { HomePage } from "./HomePage";
 import { LeadPage } from "./LeadPage";
+import { SlipPage } from "./SlipPage";
+import { Route, Routes } from "react-router";
 
 const wrap = (ui: React.ReactNode) =>
   render(<QueryClientProvider client={queryClient}><MemoryRouter>{ui}</MemoryRouter></QueryClientProvider>);
@@ -57,4 +60,39 @@ test("a child is released only after the guardian check, a note and how they'll 
   expect(sent.some((s) => s.path === "/api/lead/flags/f1/clear")).toBe(false);   // asks first
   await user.click(screen.getByRole("button", { name: "Yes, lift it" }));
   expect(sent.some((s) => s.path === "/api/lead/flags/f1/clear")).toBe(true);
+});
+
+const person = { id: "p1", preferredName: "Rosa", otherNames: [], approxAge: 80, ageIsEstimate: true, isMinor: null, treatedAsMinor: false,
+  unaccompanied: false, homeArea: null, description: null, phone: null, visibility: "ask", source: "app", paperRef: null,
+  recordedAt: "2026-10-20T12:00:00Z", hasSlip: true };
+const slipAt = (isLead: boolean) =>
+  rtlRender(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={["/persons/p1/slip"]}>
+        <Routes><Route path="/persons/:id/slip" element={<SlipPage isLead={isLead} />} /></Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+test("a volunteer never sees the lead actions on a person's page", async () => {
+  fakeBackend({ "GET /api/persons/p1": { status: 200, body: person } });
+  slipAt(false);
+  expect(await screen.findByText("Rosa is saved.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Reprint a lost slip/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Protect this person/ })).not.toBeInTheDocument();
+});
+
+test("a lead's reprint says the old slip stops working and asks first; the new PIN is shown once", async () => {
+  const sent = fakeBackend({
+    "GET /api/persons/p1": { status: 200, body: person },
+    "POST /api/lead/persons/p1/reissue-slip": { status: 201, body: { code: "HW-9Q2R", pin: "5173", shelterName: "Eastside Community Center", deskPhone: "555-0102" } },
+  });
+  slipAt(true);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: /Reprint a lost slip/ }));
+  expect(screen.getByRole("alert")).toHaveTextContent("Their old slip and PIN will stop working");
+  expect(sent.some((s) => s.path.includes("reissue-slip"))).toBe(false);
+  await user.click(screen.getByRole("button", { name: "Yes, make a new slip" }));
+  expect(await screen.findByText("5173")).toBeInTheDocument();
+  expect(screen.getByText(/The PIN is shown only now/)).toBeInTheDocument();
 });

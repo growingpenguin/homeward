@@ -145,6 +145,10 @@ export const t = {
     protect: "Protect this person: never share anything (lead)",
     protected: "Protected. Nothing about them will be shared.",
     reprint: "Reprint a lost slip (lead)",
+    reprintConfirm: "Their old slip and PIN will stop working, and the new PIN is shown only once. Print it now?",
+    yesReprint: "Yes, make a new slip",
+    protectConfirm: "Nothing about this person will be shared with anyone searching, until a lead lifts it. Protect them?",
+    yesProtect: "Yes, protect them",
   },
   problem: {
     server: "Something went wrong on our side. Please try again.",

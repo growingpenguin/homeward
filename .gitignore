@@ -1,0 +1,26 @@
+# Secrets: never commit
+.env
+.env.*
+!.env.example
+
+# Dependencies and build output
+node_modules/
+build/
+dist/
+.gradle/
+out/
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# Office lock files (a document is open)
+~$*
+
+# Local agent tooling (Neon skills, MCP config, CLI link): kept out of git
+.claude/
+.mcp.json
+skills-lock.json
+.neon

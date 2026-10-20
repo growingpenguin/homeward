@@ -243,6 +243,14 @@ unknown field "ssn"                    → {"message":"Something in this form is
 
 **After the fixes:** `./gradlew build` → **48 tests, 0 failed**.
 
+## Hotfix 0.3.1. Render: `'url' must start with "jdbc"`
+
+**What happened:** the first Render deploy failed at startup with `IllegalArgumentException: 'url' must start with "jdbc"`. The value in `.env.render` is the JDBC form (checked by key, value never printed), and the same file started the image locally (healthy in 2.7 s, 205 MB of 512 MB), so the value typed into Render's dashboard wasn't in that form (likely a prefix, quotes or Neon's own `postgresql://` URL). Re-pasting didn't fix it.
+
+**Fix** (`hotfix/0.3.1` from `main`, git-flow): `db/DatabaseUrl.kt` gives Hikari a `JdbcConnectionDetails` that turns the usual pasted forms into the JDBC address: surrounding spaces / quotes / line break, a `DB_URL=` prefix, `postgresql://` and `postgres://` (Neon's console form). A login inside a pasted URL is **ignored**: the app always connects as `DB_USER` / `DB_PASSWORD` (`homeward_app`), never as the owner a Neon URL names. Anything else fails with a clear sentence that never repeats the value (in case a password was pasted there).
+
+**Tests:** `DatabaseUrlTest` (6 pasted forms → the same JDBC URL; a password-looking value fails without being repeated); `./gradlew build` → **51 tests, 0 failed**. The Docker image run with a quoted, space-padded `postgresql://someone:ignored@…` URL → `/api/health` `{"status":"ok","schemaVersion":5}` and `/api/shelters` from Neon as `homeward_app`.
+
 ## B6
 
 _Not started (re-planned in plan mode when reached)._

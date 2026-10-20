@@ -32,6 +32,25 @@ npm run build  → built in 240ms, JS 222 kB (70 kB gzip)
 
 **Noted for B4:** the generated `RegisterPersonRequest` also lists `minor` next to `isMinor` (springdoc reads the Kotlin `isMinor` getter as a second property). Harmless, but the request type should only show `isMinor`.
 
+**Review** (`/code-review`; each finding checked against the code first). All 10 are in the reused FRONTEND.md files or deploy config, not the new skeleton:
+
+| # | Finding | Result |
+|---|---|---|
+| 1 | Paper date sent as midnight UTC, so it reads as the day before in US time zones | **Fixed:** sent as noon UTC; test |
+| 2 | Netlify's proxy gives up after about 26 s, and a sleeping Render service can take longer to wake, so the first login can fail | F1: wake the backend (`/api/health`) while the login page loads, and retry a login that got 502/504 |
+| 3 | The client counts typing as activity, but the server only counts requests with `X-Homeward-Activity`: a long form with no requests gets locked on the server only | F1: send a small activity call while the volunteer is typing |
+| 4 | Locking clears paused saves (`queryClient.clear()`) | F1: clear only queries, keep paused saves |
+| 5 | `normalizeCode` cut real characters from codes starting with HW (`HWABC` → `ABC`) | **Fixed:** strip `HW` only from a 6-character `HW7K3P`; test |
+| 6 | The slip-code rule needed `HW-`, but the keypad gives 4 characters | **Fixed:** both accepted, always sent as `HW-XXXX`; test |
+| 7 | Client misses some backend limits (10 other names, phone 40, …); blank other-name row shows zod's English | F2, where the form is built |
+| 8 | Skipped optional fields sent as `""` and stored as empty strings | **No change:** the backend stores blanks as NULL (`PersonRepo.kt` `blankToNull()` on home area, description, phone, paper ref) |
+| 9 | Generated response fields are all optional (springdoc doesn't mark Kotlin non-null fields required) | F1: mark them required on the backend before the pages use them |
+| 10 | `freshOnly` shows "Checking…" forever after an error | F3, with `SearcherView` |
+
+FRONTEND.md updated for #5 and #6.
+
+**After the fixes:** `npm run lint` 0 errors (same 3 warnings) · `npm test` 2 files, 4 tests passed · `npm run build` passed.
+
 ## F1–F4
 
 _Not started._

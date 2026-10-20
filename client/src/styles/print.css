@@ -1,0 +1,7 @@
+/* styles/print.css: the slip (and later the blank paper form) print in black on white, nothing else */
+@media print {
+  .no-print { display: none !important; }
+  body { font-size: 14pt; }
+  .slip { border: 2px dashed #000; padding: 12pt; max-width: 9cm; }
+  .slip-code { font-size: 28pt; font-weight: bold; letter-spacing: 2pt; }
+}

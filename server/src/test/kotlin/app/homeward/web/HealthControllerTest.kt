@@ -22,7 +22,7 @@ class HealthControllerTest : IntegrationTest() {
     }
 
     @Test
-    fun `everything else is closed until login exists`() {
-        mvc.get("/api/persons").andExpect { status { isForbidden() } }
+    fun `everything else needs a login`() {
+        mvc.get("/api/persons").andExpect { status { isUnauthorized() } }
     }
 }

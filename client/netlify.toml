@@ -1,0 +1,19 @@
+# Netlify: base directory "client", branch main.
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# /api goes to the backend on Render through Netlify, so the browser sees one site:
+# the session and CSRF cookies stay first-party.
+# The host is the Render service name from render.yaml; confirm it once the service is live.
+[[redirects]]
+  from = "/api/*"
+  to = "https://homeward-api.onrender.com/api/:splat"
+  status = 200
+  force = true
+
+# Every other path is a page of the single-page app.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

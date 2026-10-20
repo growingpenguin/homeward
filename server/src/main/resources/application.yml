@@ -11,9 +11,24 @@ spring:
     password: ${DB_PASSWORD}
     hikari:
       maximum-pool-size: 5         # small: free tiers, one instance
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true   # an unexpected field (e.g. "ssn") is refused, never silently dropped
   flyway:
     enabled: false                 # migrations run only through scripts/db-migrate.sh, as the owner
 
 server:
   port: ${PORT:8080}               # Render sets PORT
   shutdown: graceful
+  forward-headers-strategy: native   # trust Render's proxy, so cookies know the site is HTTPS
+  servlet:
+    session:
+      timeout: 12h                 # a whole shift; the 10-minute idle lock covers laptops left on desks
+      cookie:
+        http-only: true
+        same-site: lax
+        secure: ${COOKIE_SECURE:false}   # true on Render (HTTPS)
+
+springdoc:
+  api-docs:
+    path: /api/openapi.json        # read by the frontend's type generator

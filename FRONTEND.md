@@ -238,7 +238,7 @@ export function normalizeCode(raw: string): string {
   let text = raw.toUpperCase().trim();
   if (/^HW[\s-]/.test(text)) text = text.slice(3);                   // "HW-7K3P", "HW 7K3P"
   let chars = [...text].filter((ch) => ALPHABET.includes(ch));
-  if (chars.length > CODE_LENGTH && chars[0] === "H" && chars[1] === "W") chars = chars.slice(2);  // "HW7K3P"
+  if (chars.length === CODE_LENGTH + 2 && chars[0] === "H" && chars[1] === "W") chars = chars.slice(2);  // "HW7K3P"
   return chars.slice(0, CODE_LENGTH).join("");
 }
 
@@ -317,7 +317,8 @@ const slipCode = z
   .string()
   .trim()
   .toUpperCase()
-  .regex(/^HW-[2-9A-HJ-NP-Z]{4}$/, t.paper.badSlip)   // same format as the database
+  .regex(/^(HW-?)?[2-9A-HJ-NP-Z]{4}$/, t.paper.badSlip)   // "HW-7K3P" or just "7K3P" from the keypad
+  .transform((c) => `HW-${c.slice(-4)}`)                  // always sent in the database's format
   .optional()
   .or(z.literal("").transform(() => undefined));
 
@@ -343,8 +344,8 @@ export const registerFields = z.object({
   preferredName: z.string().trim().min(1, t.name.missing).max(100, t.name.tooLong),
   otherNames: z.array(z.string().trim().min(1)).default([]),
   approxAge: optionalAge,
-  isMinor: z.boolean().optional(),                           // undefined = not sure
-  unaccompanied: z.boolean().default(false),                 // asked only when they may be a child
+  isMinor: z.boolean().nullable().optional(),                // null or missing = not sure
+  unaccompanied: z.boolean().optional(),                     // asked only when they may be a child; no answer picked in advance
   homeArea: z.string().trim().optional(),
   description: z.string().trim().max(500).optional(),     // anything that helps recognise them
   phone: z.string().trim().optional(),

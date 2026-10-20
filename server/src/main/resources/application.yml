@@ -1,0 +1,19 @@
+# The app always connects as the least-privilege user homeward_app, never as the database owner.
+# Values come from the environment (Render dashboard, or scripts/run-backend.sh locally); never committed.
+spring:
+  application:
+    name: homeward
+  main:
+    lazy-initialization: true      # faster cold start on the free Render plan
+  datasource:
+    url: ${DB_URL}                 # jdbc:postgresql://<host>/<db>?sslmode=require
+    username: ${DB_USER:homeward_app}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 5         # small: free tiers, one instance
+  flyway:
+    enabled: false                 # migrations run only through scripts/db-migrate.sh, as the owner
+
+server:
+  port: ${PORT:8080}               # Render sets PORT
+  shutdown: graceful

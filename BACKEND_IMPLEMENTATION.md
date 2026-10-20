@@ -113,6 +113,23 @@ GET  /api/me (with the cookie) → 200;  without it → 401
 
 **Smaller fixes on the way:** Kotlin needed `ResponseEntity<*>`; ktlint wanted `IdleLock.kt` renamed to `IdleLockFilter.kt` and one line shortened; an unneeded `!!` removed.
 
+**Review (`/code-review`, Codex still unavailable):** 10 findings; 9 fixed, 1 deferred.
+
+| Finding | Fix |
+| --- | --- |
+| Parallel requests could all pass the "locked?" check before any failure was counted (5-try limit bypassed) | The whole check → BCrypt → count runs under one lock per name (`LoginThrottle.guarded`) |
+| After a lock expired, the count stayed at 5, so one typo locked again | An expired lock starts over from zero (new `LoginThrottleTest`) |
+| The attempts map could grow forever with made-up names | Capped at 10,000 entries; expired/unlocked entries purged first |
+| Login matched `lower(btrim(name))`, the unique index is `lower(name)`: two rows could match → 500 | Same expression as the index (`lower(display_name) = lower(btrim(:name))`) |
+| `maxInactiveInterval` isn't a 12-hour shift: background requests keep it alive | `LOGIN_AT` in the session; after 12 hours every request gets `401 {"expired":true}` and the session ends (new test) |
+| CSRF token not rotated at login | Login clears the XSRF cookie; the app fetches a new one |
+| XSRF cookie not `Secure` behind Render's proxy | `server.forward-headers-strategy: native` |
+| `db-seed.sh` put the owner URL on the docker command line (visible in `ps`) | Passed by name through the environment |
+| `me`/`unlock` repeated the principal lookup | Use `CurrentStaff` |
+| Anyone can keep a staff member locked out (no per-client limit) | **Deferred:** needs per-IP limits behind Render's proxy; after the deadline |
+
+**Mistake while fixing (caught by the tests before any commit):** my first attempt registered a custom CSRF repository bean, which stopped the XSRF cookie being set (`CsrfFlowTest` failed). While reverting it, a text replacement merged `.securityContext { ... }` into a comment, silently switching it off; the same test failed again and the chain was rewritten cleanly. Final: `./gradlew build` → **19 tests, 0 failed**.
+
 ## B3. Registration API
 
 _Not started._

@@ -207,6 +207,25 @@ unknown field "ssn"                    → {"message":"Something in this form is
 
 **After the fixes:** `./gradlew build` → **40 tests, 0 failed**; `scripts/db-test.sh` all passed (05: 37).
 
-## B5–B6
+## B5. Consent and protection
+
+**Branch:** `feature/backend-consent`.
+
+**Done** (`consent/` package, plus `ReunionCodeService.lookup/reissue`):
+- `SearcherStatus` (`consent/dto/searcher/`, sealed, `type` = Active / Safe / Connected): the only answer a searcher gets; no location field; only Connected carries the contact plan.
+- `VisibilityService.statusForSearcher`: allowed at the desk where the search was made or after the searcher's own slip was checked (session, 10 minutes); otherwise, and for no match / pending / declined / blocked / any active flag on the person, search or searcher: `{"type":"Active"}`. Reveals audited (`REVEALED_CONTACT`, `REVEALED_SAFE`).
+- `ConsentService`: `decide` (CONNECT / SAFE / NOT_NOW / DECLINE, at the person's desk or after their slip was checked), `connectFindable` (either desk, only `findable`, never a child), `releaseMinor` (lead route, guardian check + note + contact plan, approver from the login). Every change is `WHERE state = 'pending'`; flags checked in code, and a guard refusal from the database becomes the same plain "can't be shared" sentence. Audited (`DECISION`, `MINOR_RELEASED`).
+- `POST /api/lookup`: row lock, 5 wrong PINs → 15 minutes, unknown / locked / wrong all get the same reply after the same BCrypt work; a match lists the holder's own searches with their answers and how many requests wait for them. Audited right and wrong.
+- `GET /api/answers`, `POST /api/requests/{id}/decision`, `POST /api/requests/{id}/connect-findable`, `GET /api/searches/{id}/status`.
+- Lead (`/api/lead/**`): overview (children waiting, unaccompanied children, active flags), release a child, add / lift a flag (own shelter, audited), reissue a lost slip (old code voided in the same transaction).
+- DB review #2 (deadlock between Connect and an age correction / new flag): `retryOnce` runs the decision once more (PostgreSQL cancels one side and nothing of it is saved).
+
+**Found while building:** `treated_as_minor()` of the empty row from a LEFT JOIN (a search with no registered searcher) is `true` (unknown = child), so the SQL checks `sp.id IS NOT NULL` first. And a searcher registered with only a name counts as a child, so "Connect" then needs a lead: correct and safe, so F3 must ask whether the person searching is an adult.
+
+**Tests:** `./gradlew build` → **45 tests, 0 failed** (5 new in `ConsentApiTest`): no match / pending / declined / blocked / another desk → byte-identical `{"type":"Active"}` · Connect shows exactly `{"type":"Connected","contactPlan":…}` (no home area, phone or shelter), audited, and a flag added later turns it back into Active · a child: volunteer CONNECT → 409, volunteer on the lead route → 403, lead without check or with a blank note → 400, then released and audited · findable: other desk 404, "ask" person 409, connected at once, a later DECLINE can't overwrite · slip: another desk sees Active until the searcher's slip is checked there (lower case, no prefix), wrong PIN and unknown code get the identical reply, 5 wrong PINs lock even the right PIN, every lookup audited.
+
+**On Neon:** V5 applied (`now at version v5`).
+
+## B6
 
 _Not started (re-planned in plan mode when reached)._

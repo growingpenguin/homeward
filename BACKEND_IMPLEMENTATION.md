@@ -157,6 +157,23 @@ slip                                   → {"code":"HW-HR9K","pin":"****","shelt
 unknown field "ssn"                    → {"message":"Something in this form isn't allowed. Please check it and try again."} HTTP 400
 ```
 
+**Review** (`/code-review`, Codex over its limit; each finding checked against the code before fixing):
+
+| # | Finding | Result |
+|---|---|---|
+| 1 | Slip retry after a taken code ran in an aborted transaction (PostgreSQL rejects every statement after an error) | **Fixed:** `INSERT ... ON CONFLICT (code) DO NOTHING` + row count; only the one-per-person index still raises (→ 409) |
+| 2 | An edit that left out `visibility` / `unaccompanied` reset them to the defaults (could turn "hidden" back into "ask") | **Fixed:** both `@NotNull` on edit; test: edit without the choice → 400, person stays hidden |
+| 3 | Lower-case or spaced slip codes (`hw-5m8r`) refused | **Fixed:** case and spaces ignored, look-alike letters still refused; test |
+| 4 | A re-send carrying a slip code didn't attach it when the first send had none | **Fixed:** attached when the person has no slip yet; test |
+| 5 | `null` in `otherNames` crashed (500) | **Fixed:** nulls and blanks dropped; max 10 names, 100 characters each; test |
+| 6 | Paper checks only in the database for sheet/line | **Fixed:** service also checks sheet/line and date, same plain sentences |
+| 7 | Edit skipped the name length checks | **Fixed** |
+| 8 | Two round trips (find, then update) on edit | Deferred: correct, only slower; fine at shelter scale |
+| 9 | "Has an active slip" SQL written twice | Deferred: one place after B4 adds lost-slip handling |
+| 10 | Packages are by feature (`person/`, `audit/`, `security/`), not the `web/service/repo` layout in CLAUDE.md | Docs: CLAUDE.md layout updated |
+
+**After the fixes:** `./gradlew build` → **31 tests, 0 failed**; `scripts/db-test.sh` → all passed.
+
 ## B4–B6
 
 _Not started (re-planned in plan mode when reached)._

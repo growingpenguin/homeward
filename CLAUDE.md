@@ -68,11 +68,12 @@ client/                          React app (pages: Login, Home, Register, Search
   src/strings.ts                 all UI text (i18n-ready)
 server/                          Kotlin + Spring Boot
   src/main/kotlin/app/homeward/
-    web/                         controllers (thin: validate + call services)
-    web/dto/                     request/response types; searcher-facing types live in web/dto/searcher/
-    service/                     business logic: VisibilityService, ConsentService, ReunionCodeService, MatchingService, AuditService
-    repo/                        Spring JDBC repositories (parameterized SQL)
+    (one package per feature; each holds its controller, DTOs, service and JDBC repo)
+    web/                         shared web pieces: health, plain-sentence errors (ApiErrors)
     security/                    Spring Security config, PIN login, roles, idle lock
+    person/                      registration, edit, slips (ReunionCodeService)
+    audit/                       AuditService
+    match/, consent/             later: MatchingService, VisibilityService, ConsentService; searcher-facing types in their own dto/searcher/
   src/main/resources/db/migration/   Flyway SQL migrations
   src/main/resources/db/seed/        fictional seed data
   src/test/kotlin/               JUnit + Testcontainers tests
@@ -113,8 +114,8 @@ Run the backend tests + lint and the frontend lint + tests before every commit.
 
 - **Kotlin:** use nullable types for anything a survivor may not know (`approxAge: Int?`, `phone: String?`); no `!!` without a comment explaining why. Prefer data classes and sealed types.
 - **TypeScript:** `strict`. No `any` without a comment explaining why.
-- Controllers stay thin. **What a searcher may see is decided in one place**, `VisibilityService` (`server/src/main/kotlin/app/homeward/service/VisibilityService.kt`), and **consent decisions** (connect, safe, say no, child release) in `ConsentService`, so the privacy rules live in two known places. Do not filter location fields ad hoc inside controllers.
-- **Searcher-facing responses use their own types** (`web/dto/searcher/`, e.g. `sealed interface SearcherStatus`) that have **no location fields**. Never reuse staff-internal DTOs for searcher-facing endpoints.
+- Controllers stay thin. **What a searcher may see is decided in one place**, `VisibilityService`, and **consent decisions** (connect, safe, say no, child release) in `ConsentService`, so the privacy rules live in two known places. Do not filter location fields ad hoc inside controllers.
+- **Searcher-facing responses use their own types** (a `dto/searcher/` package, e.g. `sealed interface SearcherStatus`) that have **no location fields**. Never reuse staff-internal DTOs for searcher-facing endpoints.
 - Spring JDBC with **parameterized SQL only**, never string-concatenated queries. No JPA/Hibernate: matching SQL must stay visible.
 - Schema changes go in a new Flyway migration (`V<n>__...sql`); never edit an applied migration. The app never migrates: test with `scripts/db-test.sh`, apply with `scripts/db-migrate.sh migrate`.
 - Matching returns `MatchCandidate(score, reasons: List<String>)` where reasons are human-readable strings shown to volunteers.

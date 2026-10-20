@@ -142,7 +142,7 @@ The full problem has many parts (registration, transport, family tracing, medica
 - A minor registered without a guardian is flagged **Unaccompanied** and shown first on the lead page. (Home shows only the count of answers waiting.)
 - "Connect" needs a lead's sign-off whenever **either** person is a child: the one being looked for or the one searching.
 - A hidden child doesn't show up in searches. A guardian looking for them goes through a lead, who can find and check them (the database allows a lead to find hidden people, but a lead search screen is not built (planned)). Release always requires a **supervisor sign-off** with a verification checklist (knowledge questions, child recognises adult if age-appropriate, cross-check with school list). A matching name is not enough.
-- Custody disputes / safety concerns → supervisor can place a **hold** that stops release and escalates.
+- Custody disputes / safety concerns → supervisor can place a **hold** that stops release and escalates (the UI sets only `do_not_disclose`; other flag kinds go through the API).
 
 ## 6. Data model (draft; the final, tested version is in [`DATABASE.md`](DATABASE.md))
 

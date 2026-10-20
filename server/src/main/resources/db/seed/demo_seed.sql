@@ -2,7 +2,8 @@
 -- Three shelters from the demo script in PROPOSAL.md, and staff to log in with.
 -- Demo PIN for every staff account: 2468 (public on purpose, listed in the README). Stored only as a BCrypt hash.
 -- Only volunteers and leads: a public PIN must never open a coordinator account on the live site.
--- Re-runnable: a second run updates the rows to match this file (e.g. a rotated PIN hash).
+-- Re-runnable: a second run updates shelters and staff to match this file (e.g. a rotated PIN hash);
+-- the 200 people at the end are only added once and never overwritten (see there).
 
 INSERT INTO shelters (id, name, area, desk_phone) VALUES
   ('d0000000-0000-0000-0000-000000000001', 'Lincoln High Shelter',      'North district', '555-0101'),

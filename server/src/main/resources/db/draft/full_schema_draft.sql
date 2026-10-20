@@ -1,3 +1,6 @@
+-- REFERENCE ONLY: the schema as one file, before it was split into the migrations V1-V4.
+-- The migrations are the source of truth; fixes made after the split (listed in
+-- DATABASE_IMPLEMENTATION.md, steps 4-5) are in the migrations only.
 -- full_schema_draft.sql: the complete tested schema (was V1__init.sql). NOT a migration: Flyway never reads this folder.
 -- It is split into db/migration/V1..V3 step by step (DATABASE_PLAN.md) and used to prove the split changes nothing.
 CREATE EXTENSION IF NOT EXISTS pg_trgm;        -- similar spelling

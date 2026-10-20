@@ -55,7 +55,7 @@ PostgreSQL is the only one that wins all three rows. MySQL is close on safety ru
 
 ## Requirements → SQL
 
-The constraints come first, then the SQL that enforces each one. The SQL below is copied from the complete tested draft `server/src/main/resources/db/draft/full_schema_draft.sql`, which is being split into the Flyway migrations `V1`–`V3` step by step (see `DATABASE_PLAN.md`). It passes all checks on PostgreSQL 18.6, the same version as Neon; each rule was tested by trying to break it (see **Tests**).
+The constraints come first, then the SQL that enforces each one. The SQL below is copied from the Flyway migrations `V1`–`V4` in `server/src/main/resources/db/migration/`, which were split from the complete tested draft `db/draft/full_schema_draft.sql` step by step (see `DATABASE_PLAN.md`; the few fixes made since are listed in `DATABASE_IMPLEMENTATION.md`). It passes all checks on PostgreSQL 18.6, the same version as Neon; each rule was tested by trying to break it (see **Tests**).
 
 | # | Constraint (from the scenario) | Enforced by |
 | --- | --- | --- |
@@ -521,10 +521,11 @@ LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
     ) s
     -- A rough order using ALL signals before the cut, so a strong sound or nickname match
     -- isn't dropped for a weaker spelling match, and the right age counts too: with 100+ people
-    -- of the same name, the one of the right age must not be cut off (unknown age = no change).
+    -- of the same name, the one of the right age must not be cut off. A small bonus only, no
+    -- penalty: ages are often guesses, so a wrong guess must not push out the right name.
     -- MatchingService does the real ranking.
     ORDER BY s.sim + 0.3 * s.sounds + CASE WHEN s.nick THEN 0.5 ELSE 0 END
-             + CASE s.age_ok WHEN true THEN 0.5 WHEN false THEN -0.5 ELSE 0 END DESC, s.pid
+             + CASE WHEN s.age_ok THEN 0.3 ELSE 0 END DESC, s.pid
     LIMIT 100
 $$;
 ```

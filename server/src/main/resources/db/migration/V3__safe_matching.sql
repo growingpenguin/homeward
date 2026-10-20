@@ -35,7 +35,8 @@ CREATE TRIGGER safety_flags_lock
     BEFORE INSERT ON safety_flags
     FOR EACH ROW EXECUTE FUNCTION safety_flags_lock();
 
--- A lifted flag stays lifted: switching it back on would skip the lock and the blocking above.
+-- A lifted flag stays lifted: switching it back on would skip the lock above (and, from V4, the
+-- blocking of what was already revealed).
 -- To protect someone again, add a new flag.
 CREATE FUNCTION safety_flags_no_reactivate() RETURNS trigger
 LANGUAGE plpgsql AS $$
@@ -120,31 +121,55 @@ LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
     ) s
     -- A rough order using ALL signals before the cut, so a strong sound or nickname match
     -- isn't dropped for a weaker spelling match, and the right age counts too: with 100+ people
-    -- of the same name, the one of the right age must not be cut off (unknown age = no change).
+    -- of the same name, the one of the right age must not be cut off. A small bonus only, no
+    -- penalty: ages are often guesses, so a wrong guess must not push out the right name.
     -- MatchingService does the real ranking.
     ORDER BY s.sim + 0.3 * s.sounds + CASE WHEN s.nick THEN 0.5 ELSE 0 END
-             + CASE s.age_ok WHEN true THEN 0.5 WHEN false THEN -0.5 ELSE 0 END DESC, s.pid
+             + CASE WHEN s.age_ok THEN 0.3 ELSE 0 END DESC, s.pid
     LIMIT 100
 $$;
 
+-- Only someone matching may find can be suggested: never a hidden, protected or departed person,
+-- even if the app (or a bug in it) writes the row directly.
+CREATE FUNCTION match_candidates_only_findable() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM search_candidates c WHERE c.id = NEW.person_id) THEN
+        RAISE EXCEPTION 'this person can''t be suggested as a match' USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NEW;
+END $$;
+
+CREATE TRIGGER match_candidates_only_findable
+    BEFORE INSERT ON match_candidates
+    FOR EACH ROW EXECUTE FUNCTION match_candidates_only_findable();
+
 -- ---------- slips stay with their person ----------
--- A pre-printed slip (no person yet) can be handed out once; after that it can't be moved to
--- someone else, because whoever holds the slip would then read another person's answers.
+-- A pre-printed slip (no person yet) can be handed out once; after that its person, code and PIN
+-- can't change, because whoever holds the slip would then read another person's answers.
+-- (Failed tries, the lock and voiding still change; a lost slip gets a new code instead.)
 CREATE FUNCTION reunion_codes_keep_person() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
-    IF OLD.person_id IS NOT NULL AND NEW.person_id IS DISTINCT FROM OLD.person_id THEN
+    IF OLD.person_id IS NOT NULL AND (NEW.person_id IS DISTINCT FROM OLD.person_id
+                                      OR NEW.code <> OLD.code OR NEW.pin_hash <> OLD.pin_hash) THEN
         RAISE EXCEPTION 'a handed-out slip can''t be moved to another person; issue a new slip' USING ERRCODE = 'check_violation';
     END IF;
     RETURN NEW;
 END $$;
 
 CREATE TRIGGER reunion_codes_keep_person
-    BEFORE UPDATE OF person_id ON reunion_codes
+    BEFORE UPDATE ON reunion_codes
     FOR EACH ROW EXECUTE FUNCTION reunion_codes_keep_person();
 
 -- ---------- what the app may do ----------
-GRANT SELECT, INSERT, UPDATE ON match_candidates TO homeward_app;
+-- Trigger functions run without this right; revoking it stops the app attaching them to a table of its own.
+REVOKE EXECUTE ON FUNCTION safety_flags_lock(), safety_flags_no_reactivate(), match_candidates_only_findable(),
+                           reunion_codes_keep_person() FROM PUBLIC;
+
+-- Suggestions: add them and record the decision, never rewrite who was suggested or why.
+GRANT SELECT, INSERT ON match_candidates TO homeward_app;
+GRANT UPDATE (decision, reviewed_by) ON match_candidates TO homeward_app;
 GRANT SELECT ON nicknames, search_candidates TO homeward_app;
 GRANT EXECUTE ON FUNCTION find_candidates(text, int, int) TO homeward_app;
 

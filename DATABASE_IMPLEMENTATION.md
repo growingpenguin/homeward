@@ -146,6 +146,8 @@ The count went from 43 to 73 because every result is now asserted (and counted) 
 
 **Result:** `scripts/db-test.sh` → `RESULT: all passed`; `scripts/db-test.sh --draft` → `73 passed, 0 failed`. Docker volumes: **1 before, 1 after two runs** (the remaining one isn't from the tests) → no more leaks.
 
+**Final Codex re-check (`codex review --base develop`):** "No actionable regressions were found"; it also confirmed the migration split matches the approved plan. → PR into `develop`.
+
 ## Step 3. Registration (database side)
 
 _Not started._

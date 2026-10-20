@@ -143,7 +143,7 @@ class VisibilityService(
 - For a child, `releaseMinor` only runs if the logged-in user is a lead or coordinator. A regular volunteer gets "not allowed" (`403`).
 - A matching name alone is never enough to hand over a child; a lead has to confirm they checked the guardian and write a short note on how. This applies when **either** person is a child (the one searching or the one found), because "Connect" shows both sides how to reach each other.
 - The approver is taken from whoever is logged in, not passed in by the caller, so nobody can sign off in someone else's name.
-- Someone who chose *"Tell them where I am"* has said yes in advance, so `connectFindable` lets a volunteer connect them straight away. Only a volunteer at one of the two desks involved can press it, it still goes through the same safety checks, and it never works when a child is involved.
+- Someone who chose *"Tell them where I am"* has said yes in advance, so `connectFindable` lets a volunteer connect them straight away. Only a volunteer at one of the two desks involved can press it, only while the request is still waiting (it never overrides a "no" or "safe only"), it still goes through the same safety checks, and it never works when a child is involved.
 - The database has a trigger with the same rule, so even if the Kotlin check had a bug, the child still wouldn't be released. If someone's age is later corrected so they count as a child, every "Connect" involving them without a lead's sign-off goes back to `pending` for a lead to approve.
 - Every release is written to the audit log, so we always know who approved it.
 
@@ -189,7 +189,11 @@ class ConsentService(
         check(request.personVisibility == Visibility.FINDABLE) { "This person asked to be asked first." }
         require(contactPlan.isNotBlank()) { "Please write how they will meet." }
 
-        requests.markConnected(requestId, approvedBy = staff.id, guardianChecked = false, note = null, contactPlan = contactPlan)
+        // Advance consent only covers a request that is still waiting. If the person already said
+        // "no" or "safe only", only they can change that. The check is inside the UPDATE itself
+        // (... WHERE state = 'pending'), so a decision made a second earlier can't be overwritten.
+        val changed = requests.markConnectedIfPending(requestId, approvedBy = staff.id, contactPlan = contactPlan)
+        check(changed) { "This person has already answered. Please ask them again." }
         audit.log(staff, AuditAction.DECISION, requestId)
     }
 }
@@ -443,7 +447,7 @@ server/src/test/kotlin/                   JUnit 5 + Testcontainers + MockMvc
 6. 5 wrong PINs lock the code, even when 20 guesses arrive at the same time.
 7. Re-sending a registration with the same UUID doesn't duplicate.
 8. A volunteer gets `403` on lead-only endpoints, and can't read another shelter's search, unless the searcher's own code + PIN were just checked at their desk.
-9. `connectFindable` from a shelter that isn't one of the two desks involved gets `403`; with a child on either side it's refused.
+9. `connectFindable` from a shelter that isn't one of the two desks involved gets `403`; with a child on either side it's refused; on a request the person already answered ("no" or "safe only") it's refused and the answer stays.
 10. Every reveal and every code lookup (right or wrong) leaves an audit entry.
 
 ---

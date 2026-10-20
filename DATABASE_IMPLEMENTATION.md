@@ -114,6 +114,25 @@ ok, app can read persons: 0 rows
 
 **Result:** step 2 done. Neon is at schema version 1, the least-privilege app user works and is locked down as designed.
 
+### 2c. Codex review: the draft checks didn't assert everything
+
+**Finding (P2, verified):** `scripts/db-test.sh` only fails on an SQL error or a line containing `FAIL`, but 27 lines in `full_schema_checks.sql` (carried over from the earlier manual sessions) only **printed** a result, e.g. `Mia request after custody_hold: blocked`. A broken protection would have printed the wrong state and the run would still say "all passed". (`01_base.sql` didn't have this problem: every line there already asserts.)
+
+**Fix**
+- Added an `assert_true(condition, label)` helper (prints `ok, <label>` or `FAIL: <label>`; NULL counts as a failure). The name `check` was refused by PostgreSQL because `CHECK` is a reserved word.
+- Rewrote all 27 print-only lines as assertions: matching (spelling, sound, nickname, accents, one-sided age, ranking), hidden adult and hidden child never found, view has no location columns and is a `security_barrier`, who counts as a child, protected person not in the view, flag after Connect, history, trigger-overwritten `search_names`, retention, searcher swap, age correction.
+- **Rule for steps 3–6:** every line of a step test is an assertion; nothing is print-only.
+
+**Proof that the checks now catch broken protections** (each mutation appended temporarily to the draft, then the file restored with `git checkout`):
+
+| Temporarily removed | Result |
+| --- | --- |
+| `persons_recheck_minor` trigger | `FAIL: correcting Ben to 14 sends the unapproved Connect back to pending (got connected)` → `RESULT: FAILED` ✅ |
+| `safety_flags_block_reveals` trigger | `FAIL: custody_hold added after Connect switches the request to blocked (got connected)` → `RESULT: FAILED` ✅ |
+| nothing (real draft) | `full_schema_checks.sql: 73 passed, 0 failed` → `RESULT: all passed` |
+
+The count went from 43 to 73 because every result is now asserted (and counted) instead of printed. `scripts/db-test.sh` (V1 + step tests) still passes: `01_base.sql: 36 passed, 0 failed`.
+
 ## Step 3. Registration (database side)
 
 _Not started._

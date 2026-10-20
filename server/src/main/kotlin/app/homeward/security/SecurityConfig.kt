@@ -12,7 +12,8 @@ class SecurityConfig {
     fun filterChain(http: HttpSecurity): SecurityFilterChain =
         http
             .authorizeHttpRequests {
-                it.requestMatchers("/api/health").permitAll()
+                // /error must stay open, or every failure (e.g. the database being down) turns into an empty 403.
+                it.requestMatchers("/api/health", "/error").permitAll()
                 it.anyRequest().denyAll()
             }.build()
 }

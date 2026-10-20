@@ -210,3 +210,18 @@ Westfield (Casey): father's slip again → "They want to connect. Here's how: | 
                    (the app behind the searcher's screen: inert = true)
 ```
 The run showed "a lead decides" twice on the card (a backend reason and a frontend line); the frontend line was removed.
+
+**Review** (`/code-review`; each finding checked against the code and the backend):
+
+| # | Finding | Fix |
+|---|---|---|
+| 1 | When the **child is the one searching**, the release never asked whether the adult here agreed | Required box "The person here agreed, in person (if they are the adult being asked)"; test |
+| 2 | Releasing a child took one tap, without showing what will be shared | "Check what will be shared" shows the plan as it will be read, then "Yes, release"; nothing sent before; test |
+| 3 | "Lift this flag" in one tap | Asks first, naming the flag and the person; test |
+| 4 | "Reprint a lost slip" voided the old slip in one tap, without saying so | Says the old slip and PIN stop working and the new PIN is shown once; asks first; test |
+| 5 | "Protect" offered again on a later visit, adding duplicate flags | Asks first; the backend keeps one active flag per person and kind (pressing again is harmless); backend test |
+| 6 | After a release / lift, the Answers list stayed stale | Both refresh `answers` too |
+| 7 | A child whose found person is flagged was offered for release, then refused with "ask a lead" (to a lead) | Left off the lead's list (nothing about them can be released); backend test |
+| 8 | No test that volunteers never see the lead actions | Test |
+
+**After the fixes:** `npm run lint` 0 errors · `npm test` **25 passed** · `npm run build` passed · backend `./gradlew build` **49 passed**.

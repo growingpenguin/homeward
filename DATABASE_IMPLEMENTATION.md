@@ -53,7 +53,100 @@ Branching follows git-flow: `main` (releases only) ← `develop` (integration, P
 
 ## Step 2. Basic tables (`V1__base_tables.sql`)
 
-_Not started._
+**Date:** 2026-10-20 · **Branch:** `feature/database-base-tables` → PR into `develop`
+
+### 2a. Local: split, test runner, tests (PostgreSQL 18.6 in Docker)
+
+**Done**
+- Started Docker (`colima start`) and pulled `postgres:18.6`, the **exact** version Neon runs; it has `pg_trgm`, `fuzzystrmatch` and `unaccent`.
+- Moved `db/migration/V1__init.sql` → `db/draft/full_schema_draft.sql` (`git mv`, history kept). Flyway only reads `db/migration/`, so the draft can never run as a migration; it stays as the source for V2/V3 and as the reference for the final "nothing changed" comparison.
+- `scripts/db-test.sh`: starts a throwaway `postgres:18.6` container, applies `db/migration/V*.sql` in version order, runs every `server/src/test/resources/db/NN_*.sql`, and fails on any SQL error or any `FAIL` line. `--draft` runs the full draft with its checks instead. The container is removed at the end.
+- `V1__base_tables.sql` (198 lines): extensions, `has_text` / `all_have_text`, `shelters`, `staff`, `persons` (+ `treated_as_minor`, name trigger, indexes), `person_history` (+ trigger, `REVOKE`), `reunion_codes`, `searches`, `audit_log`, the two database users and the grants for **these** tables only. Every statement moved unchanged from the draft; only the section title "searches, matches, contact requests" became "searches".
+- Tests: `00_helpers.sql` (the `expect_fail` helper + fictional shelters/staff) and `01_base.sql` (36 checks: defaults, re-sent id, no ID columns, matching columns, who counts as a child, bad input, codes, history, app-user and retention-user permissions, temp-table attack).
+
+**Test results**
+
+| Run | Command | Result |
+| --- | --- | --- |
+| Full draft on PostgreSQL 18.6 (version check) | `scripts/db-test.sh --draft` | `full_schema_checks.sql: 43 passed, 0 failed` → **the 15 → 18 version gap is closed** |
+| V1 + step 2 tests, first run | `scripts/db-test.sh` | `01_base.sql: 35 passed, 1 failed` (`FAIL: matching columns jose perez`) |
+| V1 + step 2 tests, after the fix | `scripts/db-test.sh` | `00_helpers.sql: 1 passed`, `01_base.sql: 36 passed, 0 failed`, `RESULT: all passed` |
+| Does the runner catch failures? | a temporary test that prints `FAIL` | exit code non-zero ✅ (file removed afterwards) |
+
+**Problems and fixes**
+- The one failure was a **test bug**, not a schema bug: the test expected `name_words = ['jose','perez']`, but the trigger builds it with `SELECT DISTINCT`, which doesn't guarantee word order. The test now checks the content and the count, not the order.
+- My first `git add` of the whole migration folder put `V1` into the "move the draft" commit. The commits were still local, so I reset and redid them with one concern each (draft move → runner → V1 → tests).
+
+### 2b. Neon: apply V1 with Flyway, check the users
+
+**Done**
+- Read-only `flyway info` first (Flyway **11.20.3**, Docker image `flyway/flyway:11`): connected to Neon's PostgreSQL 18.6, `V1 base tables` = **Pending**.
+- `flyway migrate` → `Successfully applied 1 migration to schema "public", now at version v1 (execution time 00:01.772s)`. `flyway info` → `V1 | base tables | 2026-10-20 05:20:10 | Success`.
+- Credentials reached Flyway through a temporary owner-only file (deleted right after) and were never printed. The exact command is now `scripts/db-migrate.sh info|migrate|validate` (image pinned to `flyway/flyway:11.20.3`).
+
+**Checks on Neon (owner, read-only)**
+
+| Check | Result |
+| --- | --- |
+| Tables | `audit_log, flyway_schema_history, person_history, persons, reunion_codes, searches, shelters, staff` |
+| Extensions | `fuzzystrmatch 1.2, pg_trgm 1.6, unaccent 1.1` |
+| `homeward_app`, `homeward_maint` | superuser=false, createrole=false, bypassrls=false, member of=[] |
+| Inherited write-all rights | `pg_write_all_data=false`, `neon_superuser=false` for both ✅ (the console-user risk from DATABASE.md doesn't apply: they were created with SQL) |
+| App rights on `audit_log` | insert(staff_id)=true, insert(at)=**false**, update=**false**, delete=**false** |
+| App rights elsewhere | insert into `person_history`=**false**, delete `persons`=**false**, execute history function=**false** |
+
+**Smoke test on Neon, logged in as `homeward_app`** (inside a transaction, then `ROLLBACK`, so nothing was written):
+```
+ok, refused: app deletes persons -> permission denied for table persons
+ok, refused: app updates audit_log -> permission denied for table audit_log
+ok, refused: app deletes audit_log -> permission denied for table audit_log
+ok, refused: app writes fake history -> permission denied for table person_history
+ok, refused: app creates a role -> permission denied to create role
+ok, refused: app drops a table -> must be owner of table persons
+ok, app can read persons: 0 rows
+```
+
+**Changed from the plan**
+- **Passwords:** the plan said the user would set them by hand. Instead, a 40-character random password for `homeward_app` was generated on this Mac, set on Neon with `ALTER ROLE` (passed through an environment variable, never shown), and stored **only** in the git-ignored `.env.local` (`HOMEWARD_APP_DATABASE_URL`, `..._UNPOOLED`, `HOMEWARD_APP_DB_PASSWORD`; names listed in `.env.example`). This way nobody has to see or type it.
+- `homeward_maint` got **no** password: it can't log in until the retention job exists (safer than an unused login).
+- Added `scripts/db-migrate.sh` (not in the plan) so steps 4 and 5 apply migrations with exactly the same tested command.
+- Docs synced: CLAUDE.md, DATABASE.md, BACKEND.md and PROPOSAL.md no longer point to `V1__init.sql`; DATABASE.md's SQL excerpts still match the draft line for line.
+
+**Result:** step 2 done. Neon is at schema version 1, the least-privilege app user works and is locked down as designed.
+
+### 2c. Codex review: the draft checks didn't assert everything
+
+**Finding (P2, verified):** `scripts/db-test.sh` only fails on an SQL error or a line containing `FAIL`, but 27 lines in `full_schema_checks.sql` (carried over from the earlier manual sessions) only **printed** a result, e.g. `Mia request after custody_hold: blocked`. A broken protection would have printed the wrong state and the run would still say "all passed". (`01_base.sql` didn't have this problem: every line there already asserts.)
+
+**Fix**
+- Added an `assert_true(condition, label)` helper (prints `ok, <label>` or `FAIL: <label>`; NULL counts as a failure). The name `check` was refused by PostgreSQL because `CHECK` is a reserved word.
+- Rewrote all 27 print-only lines as assertions: matching (spelling, sound, nickname, accents, one-sided age, ranking), hidden adult and hidden child never found, view has no location columns and is a `security_barrier`, who counts as a child, protected person not in the view, flag after Connect, history, trigger-overwritten `search_names`, retention, searcher swap, age correction.
+- **Rule for steps 3–6:** every line of a step test is an assertion; nothing is print-only.
+
+**Proof that the checks now catch broken protections** (each mutation appended temporarily to the draft, then the file restored with `git checkout`):
+
+| Temporarily removed | Result |
+| --- | --- |
+| `persons_recheck_minor` trigger | `FAIL: correcting Ben to 14 sends the unapproved Connect back to pending (got connected)` → `RESULT: FAILED` ✅ |
+| `safety_flags_block_reveals` trigger | `FAIL: custody_hold added after Connect switches the request to blocked (got connected)` → `RESULT: FAILED` ✅ |
+| nothing (real draft) | `full_schema_checks.sql: 73 passed, 0 failed` → `RESULT: all passed` |
+
+The count went from 43 to 73 because every result is now asserted (and counted) instead of printed. `scripts/db-test.sh` (V1 + step tests) still passes: `01_base.sql: 36 passed, 0 failed`.
+
+### 2d. Codex re-review: test runner race and volume leak
+
+**Findings (both P2, verified):**
+- **Startup race:** the runner waited for two successful checks over the local socket, but the `postgres` image first runs a temporary server that also answers there, then shuts it down. On a slow start the tests could begin just before that shutdown and fail at random.
+- **Volume leak:** `docker rm -f` removes the container but not the anonymous database volume the image declares. Confirmed: **10 leftover volumes** from today's runs (all created after `colima start` at 01:16).
+
+**Fix**
+- Readiness is now checked over **TCP** (`psql -h 127.0.0.1` with the test password): the temporary server never listens on TCP, so only the final server can answer. One success is enough.
+- Cleanup is now `docker rm -fv`, which also removes the volume.
+- Removed the 10 leftover volumes by name (each checked to be dangling and created during these runs).
+
+**Result:** `scripts/db-test.sh` → `RESULT: all passed`; `scripts/db-test.sh --draft` → `73 passed, 0 failed`. Docker volumes: **1 before, 1 after two runs** (the remaining one isn't from the tests) → no more leaks.
+
+**Final Codex re-check (`codex review --base develop`):** "No actionable regressions were found"; it also confirmed the migration split matches the approved plan. → PR into `develop`.
 
 ## Step 3. Registration (database side)
 

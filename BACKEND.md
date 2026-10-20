@@ -419,7 +419,7 @@ Matching is hand-written SQL (`similarity()`, `dmetaphone()`). Spring JDBC keeps
 
 **Versions:** Spring Boot 4.x / Spring Security 7 (needed for the one-line `csrf { it.spa() }`; `JdbcClient` needs 3.2+) with Kotlin 2.2+ and the `kotlin("plugin.spring")` plugin, so Spring can wrap Kotlin's final classes for `@Transactional` and `@PreAuthorize`.
 
-**Migrations:** Flyway runs `V1__init.sql` on startup. Schema changes are new files (`V2__…sql`); applied migrations are never edited.
+**Migrations:** Flyway runs the migrations in `db/migration/` (`V1__base_tables.sql`, then `V2`/`V3`) on startup. Schema changes are new files; applied migrations are never edited.
 
 ---
 
@@ -433,7 +433,7 @@ server/src/main/kotlin/app/homeward/
   service/          VisibilityService, ConsentService, ReunionCodeService, MatchingService, AuditService
   repo/             Spring JDBC repositories (parameterized SQL)
   security/         SecurityConfig, PIN login, roles, idle lock
-server/src/main/resources/db/migration/   Flyway migrations (V1__init.sql)
+server/src/main/resources/db/migration/   Flyway migrations (V1__base_tables.sql, then V2/V3)
 server/src/test/kotlin/                   JUnit 5 + Testcontainers + MockMvc
 ```
 

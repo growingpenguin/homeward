@@ -55,7 +55,7 @@ PostgreSQL is the only one that wins all three rows. MySQL is close on safety ru
 
 ## Requirements → SQL
 
-The constraints come first, then the SQL that enforces each one. The SQL below is copied from `server/src/main/resources/db/migration/V1__init.sql`, which ran on a local PostgreSQL 15; each rule was tested by trying to break it (see **Tests**).
+The constraints come first, then the SQL that enforces each one. The SQL below is copied from the complete tested draft `server/src/main/resources/db/draft/full_schema_draft.sql`, which is being split into the Flyway migrations `V1`–`V3` step by step (see `DATABASE_PLAN.md`). It passes all checks on PostgreSQL 18.6, the same version as Neon; each rule was tested by trying to break it (see **Tests**).
 
 | # | Constraint (from the scenario) | Enforced by |
 | --- | --- | --- |
@@ -631,9 +631,9 @@ GRANT SELECT, DELETE ON persons, searches, reunion_codes TO homeward_maint;
 
 ## Migrations
 
-- **Flyway** runs `server/src/main/resources/db/migration/V1__init.sql` on startup, as the owner.
-- Schema changes are new files (`V2__…sql`); an applied migration is never edited.
-- `V1` only contains reference data (the nickname list). Data about people is **fictional only** and lives in a separate seed file, never in `V1`.
+- **Flyway** runs the migrations in `server/src/main/resources/db/migration/` in order, as the owner: `V1__base_tables.sql` (applied to Neon), then `V2__safe_matching.sql` and `V3__consent_and_protection.sql` in later steps.
+- Schema changes are new files; an applied migration is never edited.
+- Migrations only contain reference data (the nickname list, in `V2`). Data about people is **fictional only** and lives in a separate seed file, never in a migration.
 
 ---
 

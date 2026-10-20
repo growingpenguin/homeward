@@ -22,7 +22,7 @@ Guidance for Claude (and other AI assistants) working in this repository.
 
 **Homeward** is a shelter-run family reunification app for the Fullstack Challenge 26F scenario: a hurricane evacuation of ~400,000 people, families separated across dozens of shelters, many people with **no phone, no ID**, and some who **do not want to be found**.
 
-The app is operated by **shelter volunteers on behalf of survivors**. It covers: intake ("I'm here" / "I'm looking for someone") → fuzzy matching across shelters → consent-gated contact → reconnect. Read `PROPOSAL.md` for the full design, users, edge cases and scope, and `BACKEND.md`, `DATABASE.md` and `FRONTEND.md` for how each hard requirement maps to the backend, database and frontend, before making product decisions. The schema source of truth is `server/src/main/resources/db/migration/V1__init.sql`.
+The app is operated by **shelter volunteers on behalf of survivors**. It covers: intake ("I'm here" / "I'm looking for someone") → fuzzy matching across shelters → consent-gated contact → reconnect. Read `PROPOSAL.md` for the full design, users, edge cases and scope, and `BACKEND.md`, `DATABASE.md` and `FRONTEND.md` for how each hard requirement maps to the backend, database and frontend, before making product decisions. The schema lives in the Flyway migrations in `server/src/main/resources/db/migration/` (`V1`–`V3`, built step by step; see `DATABASE_PLAN.md`); `db/draft/full_schema_draft.sql` is the complete tested draft they're split from.
 
 ## Privacy and safety invariants: never break these
 
@@ -51,7 +51,7 @@ If a requested change would break one of these, stop and flag it instead of impl
 
 ## Tech stack
 
-- **Database:** PostgreSQL (Neon) with `pg_trgm` and `fuzzystrmatch`; Flyway migrations in `server/src/main/resources/db/migration/` (`V1__init.sql` is the schema source of truth)
+- **Database:** PostgreSQL 18 on Neon with `pg_trgm`, `fuzzystrmatch` and `unaccent`; Flyway migrations in `server/src/main/resources/db/migration/` (`V1__base_tables.sql`, then `V2`/`V3` in later steps). Test with `scripts/db-test.sh` (Docker, PostgreSQL 18.6); apply with `scripts/db-migrate.sh migrate`
 - **Backend:** Kotlin + Spring Boot (`server/`): Spring Web, Spring Security, Spring JDBC (**not** JPA/Hibernate), Bean Validation, Flyway, springdoc-openapi. Gradle Kotlin DSL
 - **Frontend:** React + Vite + TypeScript (`client/`): React Hook Form + zod, TanStack Query
 - **API contract:** OpenAPI from springdoc → TypeScript types generated with openapi-typescript into `client/src/api/schema.ts` (never edit by hand)

@@ -280,7 +280,7 @@ Details: [`DATABASE.md`](DATABASE.md).
 
 **What Spring Boot adds (the framework):**
 - **Spring Security** handles PIN login, sessions, roles (volunteer < lead < coordinator) and the 10-minute idle lock. It's proven code I don't have to write myself, which matters most for the security-critical part.
-- **Flyway** runs the tested SQL schema as migration `V1__init.sql`, unchanged.
+- **Flyway** runs the tested SQL schema as migrations `V1`–`V3` (split from the tested draft step by step).
 - **Testcontainers** runs tests against a **real Postgres**, so the database's own safety rules (triggers, view, permissions) are tested as well as the Kotlin code.
 - **Bean Validation + springdoc OpenAPI** give forgiving validation and an API description the frontend's types are generated from.
 - **Spring JDBC, not JPA/Hibernate.** Matching is hand-written SQL (trigram + sound-alike), and an ORM would hide or fight it.

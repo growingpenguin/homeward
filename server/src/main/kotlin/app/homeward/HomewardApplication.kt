@@ -7,5 +7,5 @@ import org.springframework.boot.runApplication
 class HomewardApplication
 
 fun main(args: Array<String>) {
-	runApplication<HomewardApplication>(*args)
+    runApplication<HomewardApplication>(*args)
 }

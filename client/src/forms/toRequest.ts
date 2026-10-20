@@ -18,7 +18,8 @@ export function toRegisterRequest(id: string, f: RegisterForm): RegisterPersonRe
     visibility: f.visibility,
     source: f.fromPaper ? "paper" : "app",
     paperRef: f.fromPaper ? f.paperRef : undefined,
-    recordedAt: f.fromPaper && f.paperDate ? new Date(f.paperDate).toISOString() : undefined,
+    // Noon UTC: the same calendar day in every US time zone (midnight UTC would read as the day before).
+    recordedAt: f.fromPaper && f.paperDate ? `${f.paperDate}T12:00:00Z` : undefined,
     slipCode: f.slipCode,
   };
 }

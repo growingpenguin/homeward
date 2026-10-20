@@ -20,11 +20,13 @@ const optionalAge = z
     return n;
   });
 
+// "HW-7K3P" or just "7K3P" (what CodeKeypad gives); always sent as "HW-7K3P", the database's format.
 const slipCode = z
   .string()
   .trim()
   .toUpperCase()
-  .regex(/^HW-[2-9A-HJ-NP-Z]{4}$/, t.paper.badSlip)   // same format as the database
+  .regex(/^(HW-?)?[2-9A-HJ-NP-Z]{4}$/, t.paper.badSlip)
+  .transform((c) => `HW-${c.slice(-4)}`)
   .optional()
   .or(z.literal("").transform(() => undefined));
 

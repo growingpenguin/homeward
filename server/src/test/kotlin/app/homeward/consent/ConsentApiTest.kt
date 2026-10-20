@@ -3,6 +3,7 @@ package app.homeward.consent
 import app.homeward.IntegrationTest
 import app.homeward.TestDatabase
 import app.homeward.security.LoginThrottle
+import app.homeward.security.LookupThrottle
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -30,7 +31,12 @@ class ConsentApiTest : IntegrationTest() {
 
     @Autowired lateinit var throttle: LoginThrottle
 
-    @BeforeEach fun reset() = throttle.clear()
+    @Autowired lateinit var lookupThrottle: LookupThrottle
+
+    @BeforeEach fun reset() {
+        throttle.clear()
+        lookupThrottle.clear()
+    }
 
     private fun loggedIn(
         shelter: String,
@@ -252,6 +258,31 @@ class ConsentApiTest : IntegrationTest() {
     }
 
     @Test
+    fun `after 10 failed code lookups a login is refused even with the right code and PIN, another login still works`() {
+        val alex = loggedIn(LINCOLN, "Volunteer Alex")
+        val casey = loggedIn(WESTFIELD, "Volunteer Casey")
+        val p = person(alex, "Ophelia Brannock", ""","approxAge":50""")
+        val slip = post(alex, "/api/persons/$p/slip").andReturn().response.contentAsString
+        val code = slip.substringAfter("\"code\":\"").substringBefore("\"")
+        val pin = slip.substringAfter("\"pin\":\"").substringBefore("\"")
+        val good = """{"code":"$code","pin":"$pin"}"""
+        // Guessing many different codes (each only once, so no single slip locks).
+        val replies =
+            (1..10).map {
+                post(
+                    casey,
+                    "/api/lookup",
+                    """{"code":"HW-ZZ${it + 1}2","pin":"0000"}""",
+                ).andReturn().response.contentAsString
+            }
+        val refused = post(casey, "/api/lookup", good).andReturn().response
+        assertEquals(200, refused.status)
+        assertEquals(replies.first(), refused.contentAsString, "a refused lookup must look exactly like a wrong guess")
+        post(casey, "/api/lookup", good).andExpect { jsonPath("$.found") { value(false) } }
+        post(alex, "/api/lookup", good).andExpect { jsonPath("$.found") { value(true) } }
+    }
+
+    @Test
     fun `23 wrong PINs sent at the same time - only 5 are checked, then the slip is locked`() {
         val alex = loggedIn(LINCOLN, "Volunteer Alex")
         val p = person(alex, "Quentin Harrowgate", ""","approxAge":50""")
@@ -259,6 +290,8 @@ class ConsentApiTest : IntegrationTest() {
         val code = slip.substringAfter("\"code\":\"").substringBefore("\"")
         val pin = slip.substringAfter("\"pin\":\"").substringBefore("\"")
         val wrong = if (pin == "1111") "2222" else "1111"
+        // Three logins (7-8 guesses each, under the per-login limit of 10), so the row lock is what's tested.
+        val desks = listOf(alex, loggedIn(LINCOLN, "Lead Jordan"), loggedIn(EASTSIDE, "Volunteer Riley"))
         val pool =
             java.util.concurrent.Executors
                 .newFixedThreadPool(23)
@@ -267,7 +300,7 @@ class ConsentApiTest : IntegrationTest() {
             (1..23).map {
                 pool.submit {
                     start.await()
-                    post(alex, "/api/lookup", """{"code":"$code","pin":"$wrong"}""")
+                    post(desks[it % 3], "/api/lookup", """{"code":"$code","pin":"$wrong"}""")
                 }
             }
         start.countDown()

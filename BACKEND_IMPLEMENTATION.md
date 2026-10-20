@@ -174,6 +174,22 @@ unknown field "ssn"                    → {"message":"Something in this form is
 
 **After the fixes:** `./gradlew build` → **31 tests, 0 failed**; `scripts/db-test.sh` → all passed.
 
-## B4–B6
+## B4. Matching API
+
+**Branch:** `feature/backend-matching` · planned in plan mode with DB steps 4–5, B5 and F3–F4.
+
+**Done** (`match/` package):
+- `POST /api/searches` `{id, searcherPersonId, soughtNames, ageMin, ageMax, relationship, lastKnownPlace}`: the person searching is registered first with the existing `POST /api/persons` (same id rules, slip, privacy choice), and must be at this desk. Re-sent form (same id) → 200, new → 201. Matching runs, audit `SEARCH`.
+- `GET /api/searches/{id}` ("Check again"): own desk only (else 404), runs matching again so someone registered later still gets suggested; never the same person twice (UNIQUE).
+- `POST /api/searches/{id}/requests` `{personId, message}`: only a person this search suggested **and** matching may still find; marks the suggestion confirmed, saves the message on the search, makes a `pending` contact request (a re-send returns the same one), audit `CONTACT_REQUEST`.
+- `MatchingService`: `0.6 × spelling + 0.15 per sound-alike word (max 2) + 0.2 nickname + 0.1 right age − 0.15 wrong age`, suggestions from 0.35, top 10; reasons in plain words ("name spelled like…", "name sounds like…", "a nickname matches…", "age fits (about 80)", "a child: a lead decides before anything is shared"). Never suggests the searcher to themselves.
+- `MatchCard` has **no** shelter, home area, phone, description or paper fields, and cards are read **through** `search_candidates`, so someone hidden or protected after being suggested drops out.
+- `isMinor` named once in the OpenAPI (`@get:`/`@param:JsonProperty`), the F0 note.
+
+**Changed from the plan:** the searcher is registered with the existing person endpoint instead of inside the search request (one registration path, same rules).
+
+**Tests:** `./gradlew build` → **36 tests, 0 failed** (5 new in `SearchApiTest`): a misspelling at another shelter is found with reasons, and the reply contains none of `Eastside`, `Seaview`, the phone, the desk phone, `shelter`, `homeArea`, `phone` · hidden people never suggested, nor the searcher themselves · "Check again" finds a paper form typed in later, once · another desk gets 404 · a request only to a suggested match, `pending`, stored once, both sends audited · the searcher must be registered at this desk · OpenAPI has `isMinor` and no stray `minor`.
+
+## B5–B6
 
 _Not started (re-planned in plan mode when reached)._

@@ -5,12 +5,13 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach } from "vitest";
 import { queryClient } from "../api/queryClient";
 import { fakeBackend } from "../test/fakeFetch";
+import { EditPage } from "./EditPage";
 import { RegisterPage } from "./RegisterPage";
 import { SlipPage } from "./SlipPage";
 
 const STAFF = "00000000-0000-0000-0000-0000000000a1";
 const saved = (over = {}) => ({
-  id: "x", preferredName: "Rosa", otherNames: [], approxAge: 80, ageIsEstimate: true, isMinor: null, treatedAsMinor: false,
+  id: "x", preferredName: "Rosa", otherNames: [], approxAge: null, ageIsEstimate: true, isMinor: null, treatedAsMinor: false,
   unaccompanied: false, homeArea: null, description: null, phone: null, visibility: "ask", source: "app", paperRef: null,
   recordedAt: "2026-10-20T12:00:00Z", hasSlip: false, ...over,
 });
@@ -22,6 +23,7 @@ function app() {
         <Routes>
           <Route path="/register" element={<RegisterPage staffId={STAFF} />} />
           <Route path="/persons/:id/slip" element={<SlipPage />} />
+          <Route path="/persons/:id/edit" element={<EditPage />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -98,4 +100,56 @@ test("the slip shows the code and PIN once, after pressing Print a slip", async 
   expect(screen.getByText("4821")).toBeInTheDocument();
   expect(screen.getByText(/The PIN is shown only now/)).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Print a slip" })).not.toBeInTheDocument();
+});
+
+test("paper mode: the next form gets a new record id, so the next person is really stored", async () => {
+  const sent = fakeBackend({
+    "POST /api/persons": { status: 201, body: saved({ id: "p1", source: "paper" }) },
+    "GET /api/persons/p1": { status: 200, body: saved({ id: "p1" }) },
+  });
+  const user = app();
+  await user.click(screen.getByRole("button", { name: "Yes, I'm copying paper forms" }));
+  await user.type(screen.getByLabelText(/Where is it on the paper/), "Sheet 1, line 1");
+  await user.type(screen.getByLabelText("Date written on the paper"), "2026-10-18");
+  await user.click(screen.getByRole("button", { name: "Next" }));
+  await user.type(screen.getByLabelText("What should we call you?"), "Rosa");
+  for (let i = 0; i < 4; i++) await user.click(screen.getByRole("button", { name: "Next" }));
+  await user.click(screen.getByRole("button", { name: "Save" }));
+  await screen.findByText("Rosa is saved.");
+  const firstId = (sent.find((x) => x.path === "/api/persons")!.body as { id: string }).id;
+  const next = JSON.parse(sessionStorage.getItem(`homeward-draft:${STAFF}:register`)!).data;
+  expect(next.recordId).not.toBe(firstId);
+  expect(next).toMatchObject({ fromPaper: true, paperDate: "2026-10-18" });
+  expect(next.preferredName).toBeUndefined();
+});
+
+test("a re-send answered with an older version opens Edit with a notice instead of claiming it saved", async () => {
+  fakeBackend({
+    "POST /api/persons": { status: 200, body: saved({ id: "p1", preferredName: "Rosa", visibility: "ask" }) },
+    "GET /api/persons/p1": { status: 200, body: saved({ id: "p1", preferredName: "Rosa", visibility: "ask" }) },
+  });
+  const user = app();
+  await user.click(screen.getByRole("button", { name: "No, the person is here with me" }));
+  await user.type(screen.getByLabelText("What should we call you?"), "Rosa");
+  await user.click(screen.getByRole("button", { name: "Next" }));
+  await user.click(screen.getByRole("button", { name: "Next" }));
+  await user.click(screen.getByText("Keep me out of searches"));
+  await user.click(screen.getByRole("button", { name: "Next" }));
+  await user.click(screen.getByRole("button", { name: "Next" }));
+  await user.click(screen.getByRole("button", { name: "Save" }));
+  expect(await screen.findByText(/already saved earlier/)).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Edit Rosa" })).toBeInTheDocument();
+});
+
+test("a child: the 'adult with them' question has no answer picked and must be answered", async () => {
+  fakeBackend({});
+  const user = app();
+  await user.click(screen.getByRole("button", { name: "No, the person is here with me" }));
+  await user.type(screen.getByLabelText("What should we call you?"), "Mia");
+  await user.click(screen.getByRole("button", { name: "Next" }));
+  await user.type(screen.getByLabelText(/^Age/), "9");
+  expect(screen.getByRole("radio", { name: "Yes" })).not.toBeChecked();
+  expect(screen.getByRole("radio", { name: "No" })).not.toBeChecked();
+  await user.click(screen.getByRole("button", { name: "Next" }));
+  expect(await screen.findByText("Please answer: is an adult from their family with them?")).toBeInTheDocument();
 });

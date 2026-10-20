@@ -26,6 +26,7 @@ function Session() {
       void qc.cancelQueries();
       qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
       qc.getMutationCache().clear();   // unsent saves must not go out later under someone else's login
+      clearAllDrafts();                // no survivor's details left on a shared laptop
       qc.setQueryData(["me"], null);
     };
     authEvents.addEventListener("expired", loggedOut);
@@ -36,10 +37,7 @@ function Session() {
   // person at the laptop could reload into this volunteer's session.
   const signOut = useMutation({
     mutationFn: logout,
-    onSuccess: () => {
-      clearAllDrafts();
-      authEvents.dispatchEvent(new Event("expired"));
-    },
+    onSuccess: () => authEvents.dispatchEvent(new Event("expired")),
   });
 
   // After a reload onto a locked server the volunteer's name isn't known yet: unlocking fetches it.

@@ -1,6 +1,6 @@
 // pages/SlipPage.tsx
 // After saving: print the slip with the code and PIN. The PIN is shown once and kept nowhere else.
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { api } from "../api/client";
 import { HttpError } from "../api/http";
@@ -10,10 +10,13 @@ import { t } from "../strings";
 
 export function SlipPage() {
   const { id } = useParams();
+  const qc = useQueryClient();
   const person = useQuery({ queryKey: ["person", id], queryFn: () => api<PersonView>(`/api/persons/${id}`) });
   const slip = useMutation({
     mutationFn: () => api<SlipResponse>(`/api/persons/${id}/slip`, { method: "POST", userAction: true }),
     gcTime: 0,   // the PIN is dropped from memory as soon as this screen closes
+    // Coming back to this screen must show "already has a slip", not the Print button again.
+    onSuccess: () => qc.setQueryData<PersonView>(["person", id], (p) => p && { ...p, hasSlip: true }),
   });
 
   if (!person.data) return person.isError ? <p role="alert">{person.error.message}</p> : null;

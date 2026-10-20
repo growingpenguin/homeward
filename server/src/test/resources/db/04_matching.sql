@@ -98,6 +98,10 @@ INSERT INTO reunion_codes (code, pin_hash) VALUES ('HW-P3Q8', '$2a$10$N9qo8uLOic
 SET ROLE homeward_app;
 SELECT expect_fail($$UPDATE reunion_codes SET person_id = '00000000-0000-0000-0000-000000000402' WHERE code = 'HW-K7M2'$$, 'move a handed-out slip to someone else');
 SELECT expect_fail($$UPDATE reunion_codes SET person_id = NULL WHERE code = 'HW-K7M2'$$, 'take a handed-out slip back to blank');
+SELECT expect_fail($$UPDATE reunion_codes SET code = 'HW-Z9Z9' WHERE code = 'HW-K7M2'$$, 'change the code of a handed-out slip');
+SELECT expect_fail($$UPDATE reunion_codes SET pin_hash = '$2a$10$abcdefghijklmnopqrstuuN9qo8uLOickgx2ZMRZoMyeIjZAgcfl7' WHERE code = 'HW-K7M2'$$, 'change the PIN of a handed-out slip');
+UPDATE reunion_codes SET failed_attempts = 1 WHERE code = 'HW-K7M2';
+SELECT 'ok, allowed: counting a wrong PIN on a handed-out slip';
 UPDATE reunion_codes SET person_id = '00000000-0000-0000-0000-000000000402' WHERE code = 'HW-P3Q8';
 SELECT assert_true(person_id = '00000000-0000-0000-0000-000000000402', 'a pre-printed slip is handed out to William')
 FROM reunion_codes WHERE code = 'HW-P3Q8';

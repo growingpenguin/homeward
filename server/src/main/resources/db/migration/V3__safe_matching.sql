@@ -128,19 +128,21 @@ LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
 $$;
 
 -- ---------- slips stay with their person ----------
--- A pre-printed slip (no person yet) can be handed out once; after that it can't be moved to
--- someone else, because whoever holds the slip would then read another person's answers.
+-- A pre-printed slip (no person yet) can be handed out once; after that its person, code and PIN
+-- can't change, because whoever holds the slip would then read another person's answers.
+-- (Failed tries, the lock and voiding still change; a lost slip gets a new code instead.)
 CREATE FUNCTION reunion_codes_keep_person() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
-    IF OLD.person_id IS NOT NULL AND NEW.person_id IS DISTINCT FROM OLD.person_id THEN
+    IF OLD.person_id IS NOT NULL AND (NEW.person_id IS DISTINCT FROM OLD.person_id
+                                      OR NEW.code <> OLD.code OR NEW.pin_hash <> OLD.pin_hash) THEN
         RAISE EXCEPTION 'a handed-out slip can''t be moved to another person; issue a new slip' USING ERRCODE = 'check_violation';
     END IF;
     RETURN NEW;
 END $$;
 
 CREATE TRIGGER reunion_codes_keep_person
-    BEFORE UPDATE OF person_id ON reunion_codes
+    BEFORE UPDATE ON reunion_codes
     FOR EACH ROW EXECUTE FUNCTION reunion_codes_keep_person();
 
 -- ---------- what the app may do ----------

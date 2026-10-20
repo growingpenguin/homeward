@@ -150,7 +150,54 @@ The count went from 43 to 73 because every result is now asserted (and counted) 
 
 ## Step 3. Registration (database side)
 
-_Not started._
+**Date:** 2026-10-20 · **Branch:** `feature/database-registration` → PR into `develop`
+
+No new migration: registration only uses the V1 tables. This step proves they work **the way the backend will use them**, logged in as the least-privilege `homeward_app` user.
+
+**Done**
+- `db/seed/demo_seed.sql`: **fictional** demo data from the PROPOSAL.md demo script: 3 shelters (Lincoln High Shelter, Eastside Community Center, Westfield High Gym) and 7 staff (3 volunteers, 3 leads, 1 coordinator). Demo PIN **2468** for every account (public on purpose, for the README), stored only as a BCrypt hash (`htpasswd -bnBC 10`, format `$2y$10$`, checked against the database's BCrypt rule). Re-runnable (`ON CONFLICT DO NOTHING`); not a migration, so Flyway never reads it.
+- `scripts/db-test.sh` now applies the seed **twice** after the migrations (proves it's re-runnable and valid against every CHECK).
+- `00_helpers.sql`: added `assert_true(condition, label)`, so every step test asserts.
+- `02_seed.sql` (5 checks): 3 shelters and 7 staff stored once, the right roles, every PIN a BCrypt hash, no people.
+- `03_registration.sql` (18 checks), run as `homeward_app`:
+
+| # | Scenario | Checks |
+| --- | --- | --- |
+| R1 | Sarah registered with only a name | defaults: `ask`, `app`, `present`, unknown age → treated as a child |
+| R2 | Same form re-sent (slow Wi-Fi) | nothing inserted; Sarah stored once |
+| R3 | "Keep me out of searches" chosen | `hidden` stored as chosen |
+| R4 | Copied from paper | sheet/line and the paper's date kept (not today) |
+| R5 | Unaccompanied 9-year-old | flag stored, treated as a child |
+| R6 | Pre-printed slip handed to Sarah | attached only while free and working; `CODE_ISSUED` audit entry |
+| R7 | Same slip for Tom | not attached; still Sarah's |
+| R8 | Second working slip for Sarah | refused |
+| R9 | Typo fixed with Edit | snapshot of the row before + who changed it; matching names updated; age 29 = adult |
+| R10 | Rules can't be skipped | refused: blank name, paper without sheet/line, no volunteer, unknown shelter, deleting a registration |
+
+**Test results (`scripts/db-test.sh`, PostgreSQL 18.6)**
+```
+applied: V1__base_tables.sql
+seeded twice: demo_seed.sql
+  00_helpers.sql: 1 passed, 0 failed
+  01_base.sql: 36 passed, 0 failed
+  02_seed.sql: 5 passed, 0 failed
+  03_registration.sql: 18 passed, 0 failed
+RESULT: all passed
+```
+
+**Proof the tests catch a broken rule:** temporarily made new people `findable` by default (appended to V1, then restored with `git checkout`) →
+```
+FAIL: default visibility findable
+FAIL: Sarah registered with just a name: ask, app, present, unknown age (so treated as a child)
+RESULT: FAILED
+```
+
+**Decisions**
+- Registration isn't its own audit action (the fixed list in V1 has none); handing out a slip is logged as `CODE_ISSUED`. Searches and reveals are audited in later steps, as CLAUDE.md requires.
+- The demo seed is **not applied to Neon yet**: it's only needed once the backend can log in, so it's applied in the backend + frontend registration slice.
+- The step tests insert fixed test data and don't clean up, so they only run in the throwaway container, never on Neon. Neon permission tests come in step 6.
+
+**Next:** plan mode for the **backend + frontend registration slice** (`BACKEND_PLAN.md`, `FRONTEND_PLAN.md`), as DATABASE_PLAN.md says.
 
 ## Step 4. Safe matching (`V2__safe_matching.sql`)
 

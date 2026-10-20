@@ -1,17 +1,22 @@
 package app.homeward.db
 
-import org.springframework.boot.ApplicationArguments
-import org.springframework.boot.ApplicationRunner
+import org.springframework.beans.factory.InitializingBean
+import org.springframework.context.annotation.Lazy
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Component
 
 // The app never runs migrations (it doesn't have the owner's password), so at startup it checks
 // that someone already ran them: an older schema would break the privacy rules the code relies on.
+//
+// The check runs while the app is starting, BEFORE the web server accepts any request
+// (@Lazy(false) + InitializingBean). An ApplicationRunner would be too late: Spring Boot
+// already serves requests while runners are still running.
 @Component
+@Lazy(false)
 class SchemaVersionCheck(
     private val jdbc: JdbcClient,
-) : ApplicationRunner {
+) : InitializingBean {
     // The highest V<n>__*.sql bundled with this build.
     val expectedVersion: Int by lazy {
         PathMatchingResourcePatternResolver()
@@ -38,12 +43,14 @@ class SchemaVersionCheck(
     @Volatile
     var checkedVersion: Int = 0
 
-    override fun run(args: ApplicationArguments) {
+    override fun afterPropertiesSet() = verify()
+
+    fun verify() {
         val actual = databaseVersion()
-        checkedVersion = actual
         check(actual >= expectedVersion) {
             "Database schema is at version $actual but this build needs $expectedVersion. " +
                 "Run scripts/db-migrate.sh migrate first."
         }
+        checkedVersion = actual
     }
 }

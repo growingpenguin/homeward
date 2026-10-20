@@ -22,7 +22,7 @@ Guidance for Claude (and other AI assistants) working in this repository.
 
 **Homeward** is a shelter-run family reunification app for the Fullstack Challenge 26F scenario: a hurricane evacuation of ~400,000 people, families separated across dozens of shelters, many people with **no phone, no ID**, and some who **do not want to be found**.
 
-The app is operated by **shelter volunteers on behalf of survivors**. It covers: intake ("I'm here" / "I'm looking for someone") → fuzzy matching across shelters → consent-gated contact → reconnect. Read `PROPOSAL.md` for the full design, users, edge cases and scope, and `BACKEND.md`, `DATABASE.md` and `FRONTEND.md` for how each hard requirement maps to the backend, database and frontend, before making product decisions. The schema lives in the Flyway migrations in `server/src/main/resources/db/migration/` (`V1`–`V3`, built step by step; see `DATABASE_PLAN.md`); `db/draft/full_schema_draft.sql` is the complete tested draft they're split from.
+The app is operated by **shelter volunteers on behalf of survivors**. It covers: intake ("I'm here" / "I'm looking for someone") → fuzzy matching across shelters → consent-gated contact → reconnect. Read `PROPOSAL.md` for the full design, users, edge cases and scope, and `BACKEND.md`, `DATABASE.md` and `FRONTEND.md` for how each hard requirement maps to the backend, database and frontend, before making product decisions. The schema lives in the Flyway migrations in `server/src/main/resources/db/migration/` (`V1`–`V5`, built step by step; see `DATABASE_PLAN.md`); `db/draft/full_schema_draft.sql` is the complete tested draft they were split from (reference only).
 
 ## Privacy and safety invariants: never break these
 
@@ -51,7 +51,7 @@ If a requested change would break one of these, stop and flag it instead of impl
 
 ## Tech stack
 
-- **Database:** PostgreSQL 18 on Neon with `pg_trgm`, `fuzzystrmatch` and `unaccent`; Flyway migrations in `server/src/main/resources/db/migration/` (`V1__base_tables.sql`, then `V2`/`V3` in later steps). Test with `scripts/db-test.sh` (Docker, PostgreSQL 18.6); apply with `scripts/db-migrate.sh migrate`
+- **Database:** PostgreSQL 18 on Neon with `pg_trgm`, `fuzzystrmatch` and `unaccent`; Flyway migrations in `server/src/main/resources/db/migration/` (`V1__base_tables.sql` to `V5__request_message.sql`). Test with `scripts/db-test.sh` (Docker, PostgreSQL 18.6); apply with `scripts/db-migrate.sh migrate`
 - **Backend:** Kotlin + Spring Boot (`server/`): Spring Web, Spring Security, Spring JDBC (**not** JPA/Hibernate), Bean Validation, Flyway, springdoc-openapi. Gradle Kotlin DSL
 - **Frontend:** React + Vite + TypeScript (`client/`): React Hook Form + zod, TanStack Query
 - **API contract:** OpenAPI from springdoc → TypeScript types generated with openapi-typescript into `client/src/api/schema.ts` (never edit by hand)
@@ -63,7 +63,7 @@ Why this stack: see `PROPOSAL.md` section 11, and `DATABASE.md`, `BACKEND.md`, `
 ## Planned layout
 
 ```
-client/                          React app (pages: Login, Home, Register, Search, CheckCode, Answers, Lead, Print)
+client/                          React app (pages: Login, Home, Register, Slip, Edit, Search, CheckCode, Answers, Lead)
   src/api/schema.ts              generated from OpenAPI, do not edit
   src/strings.ts                 all UI text (i18n-ready)
 server/                          Kotlin + Spring Boot
@@ -73,11 +73,12 @@ server/                          Kotlin + Spring Boot
     security/                    Spring Security config, PIN login, roles, idle lock
     person/                      registration, edit, slips (ReunionCodeService)
     audit/                       AuditService
-    match/, consent/             later: MatchingService, VisibilityService, ConsentService; searcher-facing types in their own dto/searcher/
+    match/                       MatchingService, search controller, service and repo
+    consent/                     VisibilityService, ConsentService, LeadService; searcher-facing types in consent/dto/searcher/
   src/main/resources/db/migration/   Flyway SQL migrations
   src/main/resources/db/seed/        fictional seed data
   src/test/kotlin/               JUnit + Testcontainers tests
-docs/                            screenshots, paper form (planned)
+docs/                            screenshots (a printable paper form is not built (planned))
 PROPOSAL.md                      Design proposal
 BACKEND.md, DATABASE.md, FRONTEND.md   Why each part was chosen and how it meets each requirement
 AI_NOTES.md                      How AI tools were used (required by the challenge)
@@ -118,9 +119,9 @@ Run the backend tests + lint and the frontend lint + tests before every commit.
 - **Searcher-facing responses use their own types** (a `dto/searcher/` package, e.g. `sealed interface SearcherStatus`) that have **no location fields**. Never reuse staff-internal DTOs for searcher-facing endpoints.
 - Spring JDBC with **parameterized SQL only**, never string-concatenated queries. No JPA/Hibernate: matching SQL must stay visible.
 - Schema changes go in a new Flyway migration (`V<n>__...sql`); never edit an applied migration. The app never migrates: test with `scripts/db-test.sh`, apply with `scripts/db-migrate.sh migrate`.
-- Matching returns `MatchCandidate(score, reasons: List<String>)` where reasons are human-readable strings shown to volunteers.
+- Matching returns `MatchCard(score, reasons: List<String>, ...)` where reasons are human-readable strings shown to volunteers.
 - Keep the backend light for Render's free tier: no unused Spring starters, lazy initialization on.
-- Secrets come from env vars (`DATABASE_URL`, `SESSION_SECRET`); never commit `.env`.
+- Secrets come from env vars (`DB_URL`, `DB_USER`, `DB_PASSWORD`); never commit `.env`.
 - Keep it simple: a small working app beats a large broken one. Don't add dependencies or features outside `PROPOSAL.md` scope without saying so.
 
 ## Testing priorities
@@ -144,7 +145,7 @@ Run the backend tests + lint and the frontend lint + tests before every commit.
 1. Update `develop`, then branch `feature/<name>`.
 2. Commit small and often, one line per message (what and why), because small commits are easy to review and to revert when one breaks.
 3. Push `feature/*` to the remote.
-4. Cross-check the code with GPT (Codex) before opening the PR (see below).
+4. Cross-check the code with GPT (Codex) before opening the PR (see below). When Codex was over its limit, `/code-review` was used instead.
 5. Open a PR into `develop`. Never PR directly into `main`, because `main` should only receive reviewed, integrated code.
 
 ### GPT (Codex) cross-check

@@ -8,8 +8,11 @@ import type { Me } from "./api/types";
 import { AppShell } from "./components/AppShell";
 import { clearAllDrafts } from "./hooks/useDraft";
 import { ConnectionBanner } from "./components/ConnectionBanner";
+import { EditPage } from "./pages/EditPage";
 import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
+import { RegisterPage } from "./pages/RegisterPage";
+import { SlipPage } from "./pages/SlipPage";
 import { t } from "./strings";
 
 function Session() {
@@ -23,6 +26,7 @@ function Session() {
       void qc.cancelQueries();
       qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
       qc.getMutationCache().clear();   // unsent saves must not go out later under someone else's login
+      clearAllDrafts();                // no survivor's details left on a shared laptop
       qc.setQueryData(["me"], null);
     };
     authEvents.addEventListener("expired", loggedOut);
@@ -33,10 +37,7 @@ function Session() {
   // person at the laptop could reload into this volunteer's session.
   const signOut = useMutation({
     mutationFn: logout,
-    onSuccess: () => {
-      clearAllDrafts();
-      authEvents.dispatchEvent(new Event("expired"));
-    },
+    onSuccess: () => authEvents.dispatchEvent(new Event("expired")),
   });
 
   // After a reload onto a locked server the volunteer's name isn't known yet: unlocking fetches it.
@@ -68,6 +69,9 @@ function Session() {
         <h1>{t.appName}</h1>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          {me.data !== "locked" && <Route path="/register" element={<RegisterPage key={me.data.staffId} staffId={me.data.staffId} />} />}
+          <Route path="/persons/:id/slip" element={<SlipPage />} />
+          <Route path="/persons/:id/edit" element={<EditPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

@@ -17,3 +17,10 @@ main { max-width: 720px; margin: 0 auto; padding: 16px; }
 .stack label { display: flex; flex-direction: column; gap: 4px; }
 .top-bar { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 8px 16px; border-bottom: 1px solid #ccc; }
 .banner { padding: 12px 16px; background: #fff4cc; border: 1px solid #c9a800; }
+.choice-cards { display: flex; flex-direction: column; gap: 8px; border: 0; padding: 0; margin: 0; }
+.choice-card { border: 2px solid #999; border-radius: 8px; cursor: pointer; }
+.choice-card.is-selected { border-color: var(--focus); background: #e8f3f6; }
+.say-this { padding: 12px 16px; background: #f2f2f2; border-left: 4px solid var(--focus); }
+.problem { color: #9b1c1c; font-weight: bold; }
+.summary dt { font-weight: bold; margin-top: 8px; }
+.summary dd { margin: 0; }

@@ -5,7 +5,7 @@ import type { SearcherStatus } from "./types";
 import { HttpError } from "./http";
 
 // Retry network trouble and server hiccups (5xx), never "not allowed" or "check your input" (4xx).
-const worthRetrying = (count: number, error: Error) =>
+export const worthRetrying = (count: number, error: Error) =>
   count < 3 && !(error instanceof HttpError && error.status < 500);
 
 export const queryClient = new QueryClient({

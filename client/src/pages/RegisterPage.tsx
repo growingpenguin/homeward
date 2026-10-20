@@ -20,12 +20,19 @@ import { t } from "../strings";
 type Draft = z.infer<typeof registerDraftSchema>;
 
 // A fresh form; in paper mode the next form keeps paper mode and the date (forms come in stacks).
-const blank = (keep: Partial<Draft> = {}): Draft => ({ recordId: newRecordId(), visibility: "ask", unaccompanied: false, otherNames: [], ...keep });
+const blank = (keep: Partial<Draft> = {}): Draft => ({ recordId: newRecordId(), visibility: "ask", otherNames: [], ...keep });
+
+// The backend answers a re-sent id with the person as FIRST stored. If that differs from what was
+// sent (the volunteer changed something after a lost reply), the changes weren't saved.
+const sameAsSent = (p: PersonView, r: RegisterPersonRequest) =>
+  p.preferredName === r.preferredName?.trim() && p.visibility === r.visibility &&
+  p.unaccompanied === r.unaccompanied && p.approxAge === (r.approxAge ?? null) && p.isMinor === (r.isMinor ?? null);
 
 export function RegisterPage({ staffId }: { staffId: string }) {
   const navigate = useNavigate();
-  const draft = useDraft(staffId, "register", registerDraftSchema, blank());
-  const recordId = draft.value.recordId ?? newRecordId();
+  const [initial] = useState(() => blank());
+  const draft = useDraft(staffId, "register", registerDraftSchema, initial);
+  const recordId = draft.value.recordId ?? initial.recordId!;   // !: blank() always sets it
   const form = useForm<RegisterInput, unknown, RegisterForm>({
     resolver: personResolver,
     defaultValues: draft.value as RegisterInput,
@@ -48,12 +55,6 @@ export function RegisterPage({ staffId }: { staffId: string }) {
   const save = useMutation({
     mutationFn: (r: RegisterPersonRequest) => api<PersonView>("/api/persons", { method: "POST", body: r, userAction: true }),
     retry: worthRetrying,   // safe to repeat: the same id is stored once
-    onSuccess: (p, r) => {
-      if (r.source === "paper") draft.setValue(blank({ fromPaper: true, paperDate: form.getValues("paperDate") }));
-      else draft.clear();
-      navigate(`/persons/${p.id}/slip`);
-    },
-    onError: (e) => setProblem(e instanceof HttpError && e.status < 500 ? e.message : t.problem.noConnection),
   });
 
   const choose = (paper: boolean) => {
@@ -77,7 +78,17 @@ export function RegisterPage({ staffId }: { staffId: string }) {
   const submit = form.handleSubmit(
     (data) => {
       setProblem(null);
-      save.mutate(toRegisterRequest(recordId, data));
+      // Callbacks here, not on the hook: they only run while this page is open, so a save that
+      // finishes later (after being offline) can't suddenly move the volunteer to another screen.
+      save.mutate(toRegisterRequest(recordId, data), {
+        onSuccess: (p, r) => {
+          if (r.source === "paper") draft.reset(blank({ fromPaper: true, paperDate: form.getValues("paperDate") }));
+          else draft.clear();
+          if (sameAsSent(p, r)) navigate(`/persons/${p.id}/slip`);
+          else navigate(`/persons/${p.id}/edit`, { state: { notice: t.register.alreadySaved } });
+        },
+        onError: (e) => setProblem(e instanceof HttpError && e.status < 500 ? e.message : t.problem.noConnection),
+      });
     },
     // Something on an earlier step is wrong: go back to that step, where the message is shown.
     (errors) => {

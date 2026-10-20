@@ -62,7 +62,18 @@ export function useDraft<T>(
     setState({ key, value: initial, dirty: false });   // dirty: false, so the empty form isn't written back
   };
 
-  return { value: state.value, setValue, clear, canKeepDraft };
+  // Start the next form now, written straight to storage: the page may close in the same moment
+  // (e.g. it navigates away), and then the effect above would never run.
+  const reset = (value: T) => {
+    try {
+      sessionStorage.setItem(PREFIX + key, JSON.stringify({ savedAt: Date.now(), data: value }));
+    } catch {
+      setCanKeepDraft(false);
+    }
+    setState({ key, value, dirty: false });
+  };
+
+  return { value: state.value, setValue, clear, reset, canKeepDraft };
 }
 
 // Called on logout and when a different volunteer logs in: no personal data is left behind.

@@ -226,6 +226,23 @@ unknown field "ssn"                    → {"message":"Something in this form is
 
 **On Neon:** V5 applied (`now at version v5`).
 
+**Review** (`/code-review`; each finding checked against the code; the parallel-guess test was proven to fail without the fix):
+
+| # | Finding | Result |
+|---|---|---|
+| 1 | **`lookup` had no transaction**: the `FOR UPDATE` lock ended at once, so parallel guesses all got a full PIN check (the 5-try limit could be brute-forced) | **Fixed:** `@Transactional`; test: 23 parallel wrong PINs → locked, and the count is 0 (only 5 checked). Without the fix: `FAILED` |
+| 2 | **`release-minor` could connect any request**, e.g. an adult who never said yes, by a lead writing their own contact plan | **Fixed:** only when a child is involved; test |
+| 3 | The lead on the **asking** side could release a child at another shelter alone | **Fixed:** only a lead at the found person's desk (where the child is, or where the adult being asked says yes); test |
+| 4 | The "verified by slip" marker stayed 10 minutes on the shared desk session, even after the next person's failed check | **Fixed:** every lookup clears it first; `POST /api/lookup/end` when done; test |
+| 5 | "Safe" for a child skipped the lead | **Fixed:** "Safe" with a child involved → a lead decides; test |
+| 6 | Requests from a flagged searcher / search still listed, with their message to read out | **Fixed:** left out of Answers waiting; test |
+| 7 | Adding a flag could be the deadlock victim against a Connect: flag lost, Connect kept | **Fixed:** `LeadService.addFlag` is retried once like decisions |
+| 8 | Lead overview missed some child requests | **Fixed** by #3: it lists exactly what this lead can release (child requests at this desk) |
+| 9 | Unknown / locked code vs. wrong PIN take slightly different time (extra UPDATE) | **Noted:** both do one BCrypt check; the remaining difference is one small UPDATE, accepted for the demo (README tradeoffs) |
+| 10 | `LeadController` ran SQL and transactions itself | **Fixed:** moved to `LeadService` |
+
+**After the fixes:** `./gradlew build` → **48 tests, 0 failed**.
+
 ## B6
 
 _Not started (re-planned in plan mode when reached)._

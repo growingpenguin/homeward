@@ -291,4 +291,29 @@ class ConsentApiTest : IntegrationTest() {
             .andExpect { status { isConflict() } }
         assertEquals("""{"type":"Active"}""", status(alex, searchId))
     }
+
+    @Test
+    fun `the next slip check forgets the previous person, and a flagged searcher's message is never read out`() {
+        val alex = loggedIn(LINCOLN, "Volunteer Alex")
+        val riley = loggedIn(EASTSIDE, "Volunteer Riley")
+        val casey = loggedIn(WESTFIELD, "Volunteer Casey")
+        val wanted = person(riley, "Philippa Grange", ""","approxAge":33""")
+        val slip = post(riley, "/api/persons/$wanted/slip").andReturn().response.contentAsString
+        val code = slip.substringAfter("\"code\":\"").substringBefore("\"")
+        val pin = slip.substringAfter("\"pin\":\"").substringBefore("\"")
+        val searcher = person(alex, "Tobin Grange", ""","approxAge":36""")
+        val (_, req) = requested(alex, wanted, "Philippa Grange", searcher)
+
+        post(casey, "/api/lookup", """{"code":"$code","pin":"$pin"}""").andExpect { jsonPath("$.answersWaiting") { value(1) } }
+        mvc.get("/api/answers") { session = casey }.andExpect { jsonPath("$[?(@.requestId == '$req')]") { exists() } }
+        // The next person at Casey's desk mistypes their PIN: Philippa's requests are gone from this desk.
+        post(casey, "/api/lookup", """{"code":"HW-ZZZZ","pin":"0000"}""")
+        mvc.get("/api/answers") { session = casey }.andExpect { jsonPath("$[?(@.requestId == '$req')]") { doesNotExist() } }
+
+        // A flag on the searcher: the request disappears from the found person's desk too.
+        mvc.get("/api/answers") { session = riley }.andExpect { jsonPath("$[?(@.requestId == '$req')]") { exists() } }
+        val jordan = loggedIn(LINCOLN, "Lead Jordan")
+        post(jordan, "/api/lead/flags", """{"personId":"$searcher","kind":"suspected_abuser"}""").andExpect { status { isCreated() } }
+        mvc.get("/api/answers") { session = riley }.andExpect { jsonPath("$[?(@.requestId == '$req')]") { doesNotExist() } }
+    }
 }

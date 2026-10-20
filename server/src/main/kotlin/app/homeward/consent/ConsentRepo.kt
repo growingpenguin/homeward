@@ -136,6 +136,9 @@ class ConsentRepo(
                 JOIN searches s ON s.id = cr.search_id
                 LEFT JOIN persons sp ON sp.id = s.searcher_person_id
                 WHERE cr.state = 'pending' AND (p.shelter_id = :shelterId OR p.id = :personId)
+                  -- a flagged search or searcher: their message is never read out
+                  AND NOT EXISTS (SELECT 1 FROM safety_flags f WHERE f.cleared_at IS NULL
+                                  AND (f.search_id = s.id OR f.person_id = s.searcher_person_id))
                 ORDER BY cr.created_at
                 """.trimIndent(),
             ).param("shelterId", shelterId)

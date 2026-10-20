@@ -244,4 +244,34 @@ class ConsentApiTest : IntegrationTest() {
         assertTrue(count("SELECT count(*) FROM audit_log WHERE action = 'CODE_LOOKUP_FAILED' AND target = '$son'") >= 6)
         assertEquals(1, count("SELECT count(*) FROM audit_log WHERE action = 'CODE_LOOKUP' AND target = '$son'"))
     }
+
+    @Test
+    fun `23 wrong PINs sent at the same time - only 5 are checked, then the slip is locked`() {
+        val alex = loggedIn(LINCOLN, "Volunteer Alex")
+        val p = person(alex, "Quentin Harrowgate", ""","approxAge":50""")
+        val slip = post(alex, "/api/persons/$p/slip").andReturn().response.contentAsString
+        val code = slip.substringAfter("\"code\":\"").substringBefore("\"")
+        val pin = slip.substringAfter("\"pin\":\"").substringBefore("\"")
+        val wrong = if (pin == "1111") "2222" else "1111"
+        val pool =
+            java.util.concurrent.Executors
+                .newFixedThreadPool(23)
+        val start = java.util.concurrent.CountDownLatch(1)
+        val jobs =
+            (1..23).map {
+                pool.submit {
+                    start.await()
+                    post(alex, "/api/lookup", """{"code":"$code","pin":"$wrong"}""")
+                }
+            }
+        start.countDown()
+        jobs.forEach { it.get() }
+        pool.shutdown()
+        assertEquals(1, count("SELECT count(*) FROM reunion_codes WHERE code = '$code' AND locked_until > now()"))
+        // The 5th wrong PIN locked it and reset the count; the other 18 never reached the PIN check.
+        // (Without the row lock, guesses run side by side and the count ends at 23 % 5 = 3.)
+        assertEquals(1, count("SELECT count(*) FROM reunion_codes WHERE code = '$code' AND failed_attempts = 0"))
+        // Locked: even the right PIN gets the same "didn't match".
+        post(alex, "/api/lookup", """{"code":"$code","pin":"$pin"}""").andExpect { jsonPath("$.found") { value(false) } }
+    }
 }

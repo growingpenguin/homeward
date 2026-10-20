@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.security.SecureRandom
 import java.util.UUID
 
@@ -81,6 +82,8 @@ class ReunionCodeService(
     // Someone with no phone shows their slip at ANY desk; a volunteer types the code and PIN.
     // Returns whose slip it is, or null. A wrong code, a locked code and a wrong PIN all return null
     // after the same BCrypt work, and nothing is thrown, so the failure count is saved.
+    // @Transactional: the row lock (FOR UPDATE) holds until the count is saved, so parallel guesses wait in line.
+    @Transactional
     fun lookup(
         code: String,
         pin: String,

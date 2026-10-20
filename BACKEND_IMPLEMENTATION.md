@@ -132,7 +132,30 @@ GET  /api/me (with the cookie) → 200;  without it → 401
 
 ## B3. Registration API
 
-_Not started._
+**Date:** 2026-10-20 · **Branch:** `feature/backend-registration` → PR into `develop`
+
+**Done**
+- `POST /api/persons` (`RegisterPersonRequest`): only `preferredName` required; shelter and `entered_by` from the login; unknown JSON fields refused (`fail-on-unknown-properties: true`); a re-sent form (same browser-made `id`) returns **200** with the same person, a new one **201**; paper forms need sheet/line (database) **and** the paper's date (service); a pre-printed `slipCode` is attached in the same transaction, only while free (otherwise the whole registration is rolled back).
+- `POST /api/persons/{id}/slip`: new code (`SecureRandom`, no 0/O/1/I, retries on a taken code) + 4-digit PIN shown **once**, BCrypt-stored; second slip → 409 "ask a lead to reprint"; audit `CODE_ISSUED`. Returns the shelter name and desk phone for printing.
+- `GET` / `PUT /api/persons/{id}` (the Edit button): own shelter only, anything else → 404 "Person not found."; `updated_by` always from the login (covers the step 3 review note on history attribution).
+- `ApiErrors`: validation, unreadable JSON and database CHECK violations → the same plain sentences the frontend uses.
+- `AuditService`: inserts only `staff_id`, `action`, `target`.
+- springdoc-openapi 3.1.1 → public `/api/openapi.json` (for the frontend's generated types).
+
+**Changed from the plan:** edit is `PUT` (the frontend sends the whole form), not `PATCH`.
+
+**Tests:** `./gradlew build` → **29 tests, 0 failed** (10 new): safe defaults with shelter/volunteer from the login · re-send stores nothing new · `ssn` field refused · plain-sentence errors (blank name, paper without sheet/line, paper without date, 9-year-old marked adult) · paper fields kept · slip once, PIN never stored in clear, audited, second slip 409 · pre-printed slip attached only while free, failed attach rolls back · another shelter's person = 404 · edit recorded with the editor from the login · no login = 401, OpenAPI public and without `ssn`.
+
+**Test problem found and fixed:** the real CSRF flow test failed only when run after `AuthTest`. Narrowed down by running pairs of test classes: spring-security-test's `csrf()` helper swaps the app's CSRF token store for a test one inside the **shared** test context, after which no request gets a real cookie. Not an app bug (the real server sets the cookie). The test now runs in its own fresh context (`@DirtiesContext`).
+
+**Real run against Neon** (`scripts/run-backend.sh` + curl with the real CSRF flow, as Volunteer Riley at Eastside):
+```
+login                                  → HTTP 200
+register "Rosa Rodriguez", ~80, Seaview → HTTP 201  (fictional; she's the person in the PROPOSAL.md demo script)
+same form again                        → HTTP 200 (same person, nothing new)
+slip                                   → {"code":"HW-HR9K","pin":"****","shelterName":"Eastside Community Center","deskPhone":"555-0102"} HTTP 201
+unknown field "ssn"                    → {"message":"Something in this form isn't allowed. Please check it and try again."} HTTP 400
+```
 
 ## B4–B6
 

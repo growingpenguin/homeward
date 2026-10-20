@@ -40,6 +40,8 @@ export const t = {
     paperDate: "Date written on the paper",
     notGiven: "Not given",
     tooManyNames: "Please keep it to 10 other names.",
+    answerAdult: "Please answer: is an adult from their family with them?",
+    alreadySaved: "This person was already saved earlier (the first try did reach us). Please check the details below and save any changes.",
     tooLong: "Please make this shorter.",
   },
   slip: {

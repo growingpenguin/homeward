@@ -344,8 +344,8 @@ export const registerFields = z.object({
   preferredName: z.string().trim().min(1, t.name.missing).max(100, t.name.tooLong),
   otherNames: z.array(z.string().trim().min(1)).default([]),
   approxAge: optionalAge,
-  isMinor: z.boolean().optional(),                           // undefined = not sure
-  unaccompanied: z.boolean().default(false),                 // asked only when they may be a child
+  isMinor: z.boolean().nullable().optional(),                // null or missing = not sure
+  unaccompanied: z.boolean().optional(),                     // asked only when they may be a child; no answer picked in advance
   homeArea: z.string().trim().optional(),
   description: z.string().trim().max(500).optional(),     // anything that helps recognise them
   phone: z.string().trim().optional(),

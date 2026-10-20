@@ -4,12 +4,18 @@ import { Controller, type UseFormReturn } from "react-hook-form";
 import { SayThis } from "../components/SayThis";
 import { VisibilityChoice } from "../components/VisibilityChoice";
 import { t } from "../strings";
-import type { RegisterForm, RegisterInput } from "./registerSchema";
+import { mayBeChild, type RegisterForm, type RegisterInput } from "./registerSchema";
 
 export type PersonForm = UseFormReturn<RegisterInput, unknown, RegisterForm>;
 
 function Problem({ message }: { message?: string }) {
   return message ? <p role="alert" className="problem">{message}</p> : null;
+}
+
+// The age box as a number, or undefined when it's empty or not a number yet.
+function ageOf(v: unknown): number | undefined {
+  const n = Number(`${v ?? ""}`.trim());
+  return `${v ?? ""}`.trim() === "" || !Number.isFinite(n) ? undefined : n;
 }
 
 // "Ana, Annie" in the box, ["Ana", "Annie"] in the form; empty pieces are dropped.
@@ -43,10 +49,8 @@ export function PersonFields({ step, form }: { step: string; form: PersonForm })
         </div>
       );
     case "age": {
-      const age = Number(watch("approxAge"));
-      const ageKnown = `${watch("approxAge") ?? ""}`.trim() !== "" && Number.isFinite(age);
       // Asked only when they may be a child: an adult with them changes how a child is protected.
-      const mayBeChild = watch("isMinor") === true || (watch("isMinor") === undefined && (!ageKnown || age < 18));
+      const askAdult = mayBeChild(watch("isMinor"), ageOf(watch("approxAge")));
       return (
         <div className="stack">
           <label>{t.register.age}<input inputMode="numeric" {...register("approxAge")} autoComplete="off" /></label>
@@ -57,9 +61,10 @@ export function PersonFields({ step, form }: { step: string; form: PersonForm })
             render={({ field }) => (
               <fieldset className="choice-cards">
                 <legend>{t.register.minor.question}</legend>
-                {([[true, t.register.minor.yes], [false, t.register.minor.no], [undefined, t.register.minor.unsure]] as const).map(([v, label]) => (
-                  <label key={label} className={field.value === v ? "choice-card is-selected" : "choice-card"}>
-                    <input type="radio" name="isMinor" checked={field.value === v} onChange={() => field.onChange(v)} />
+                {/* "Not sure" is null, not undefined: react-hook-form would show the starting value again for undefined */}
+                {([[true, t.register.minor.yes], [false, t.register.minor.no], [null, t.register.minor.unsure]] as const).map(([v, label]) => (
+                  <label key={label} className={(field.value ?? null) === v ? "choice-card is-selected" : "choice-card"}>
+                    <input type="radio" name="isMinor" checked={(field.value ?? null) === v} onChange={() => field.onChange(v)} />
                     {label}
                   </label>
                 ))}
@@ -67,7 +72,7 @@ export function PersonFields({ step, form }: { step: string; form: PersonForm })
             )}
           />
           <Problem message={msg("isMinor")} />
-          {mayBeChild && (
+          {askAdult && (
             <Controller
               control={control}
               name="unaccompanied"
@@ -84,6 +89,7 @@ export function PersonFields({ step, form }: { step: string; form: PersonForm })
               )}
             />
           )}
+          {askAdult && <Problem message={msg("unaccompanied")} />}
         </div>
       );
     }
@@ -124,10 +130,23 @@ export function Summary({ values }: { values: RegisterInput }) {
       <dt>{t.steps.name}</dt><dd>{text(values.preferredName)}</dd>
       <dt>{t.register.otherNames}</dt><dd>{values.otherNames?.length ? values.otherNames.join(", ") : none}</dd>
       <dt>{t.register.age}</dt><dd>{text(values.approxAge)} ({minor})</dd>
+      {mayBeChild(values.isMinor, ageOf(values.approxAge)) && (
+        <>
+          <dt>{t.age.adultWithThem}</dt>
+          <dd>{values.unaccompanied === false ? t.register.yes : values.unaccompanied === true ? t.register.no : none}</dd>
+        </>
+      )}
       <dt>{t.steps.privacy}</dt><dd>{t.visibility[values.visibility ?? "ask"].label}</dd>
       <dt>{t.register.homeArea}</dt><dd>{text(values.homeArea)}</dd>
       <dt>{t.recognise}</dt><dd>{text(values.description)}</dd>
       <dt>{t.register.phone}</dt><dd>{text(values.phone)}</dd>
+      {values.fromPaper && (
+        <>
+          <dt>{t.register.paperRef}</dt><dd>{text(values.paperRef)}</dd>
+          <dt>{t.register.paperDate}</dt><dd>{text(values.paperDate)}</dd>
+          <dt>{t.paper.slipCode}</dt><dd>{text(values.slipCode)}</dd>
+        </>
+      )}
     </dl>
   );
 }

@@ -4,13 +4,13 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useParams } from "react-router";
+import { useLocation, useNavigate, useParams } from "react-router";
 import { api } from "../api/client";
 import { HttpError } from "../api/http";
 import type { EditPersonRequest, PersonView } from "../api/types";
 import { BigButton } from "../components/BigButton";
 import { PersonFields } from "../forms/PersonFields";
-import { personResolver, type RegisterForm, type RegisterInput } from "../forms/registerSchema";
+import { personResolver, unaccompaniedToSend, type RegisterForm, type RegisterInput } from "../forms/registerSchema";
 import { t } from "../strings";
 
 export function EditPage() {
@@ -24,13 +24,14 @@ function EditForm({ person }: { person: PersonView }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [problem, setProblem] = useState<string | null>(null);
+  const notice = (useLocation().state as { notice?: string } | null)?.notice;
   const form = useForm<RegisterInput, unknown, RegisterForm>({
     resolver: personResolver,
     defaultValues: {
       preferredName: person.preferredName,
       otherNames: person.otherNames,
       approxAge: person.approxAge,
-      isMinor: person.isMinor ?? undefined,
+      isMinor: person.isMinor,
       unaccompanied: person.unaccompanied,
       homeArea: person.homeArea ?? "",
       description: person.description ?? "",
@@ -54,7 +55,7 @@ function EditForm({ person }: { person: PersonView }) {
       approxAge: f.approxAge ?? null,
       ageIsEstimate: person.ageIsEstimate,
       isMinor: f.isMinor ?? null,
-      unaccompanied: f.unaccompanied,
+      unaccompanied: unaccompaniedToSend(f),
       homeArea: f.homeArea ?? null,
       description: f.description ?? null,
       phone: f.phone ?? null,
@@ -65,6 +66,7 @@ function EditForm({ person }: { person: PersonView }) {
   return (
     <form className="stack" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
       <h2>{t.edit.title(person.preferredName)}</h2>
+      {notice && <p role="status" className="problem">{notice}</p>}
       {["name", "age", "privacy", "extra"].map((s) => <PersonFields key={s} step={s} form={form} />)}
       {problem && <p role="alert" className="problem">{problem}</p>}
       <BigButton type="submit" label={t.edit.save} disabled={save.isPending} />

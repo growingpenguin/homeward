@@ -54,8 +54,8 @@ export const registerFields = z.object({
   preferredName: z.string().trim().min(1, t.name.missing).max(100, t.name.tooLong),
   otherNames: z.array(z.string().trim().max(100, t.register.tooLong)).max(10, t.register.tooManyNames).default([]),
   approxAge: optionalAge,
-  isMinor: z.boolean().optional(),                           // undefined = not sure
-  unaccompanied: z.boolean().default(false),                 // asked only when they may be a child
+  isMinor: z.boolean().nullable().optional(),                // null or missing = not sure
+  unaccompanied: z.boolean().optional(),                     // asked only when they may be a child; no answer picked in advance
   homeArea: z.string().trim().max(200, t.register.tooLong).optional(),
   description: z.string().trim().max(500, t.register.tooLong).optional(),     // anything that helps recognise them
   phone: z.string().trim().max(40, t.register.tooLong).optional(),
@@ -79,7 +79,26 @@ export const registerSchema = registerFields
   .refine((f) => !(f.isMinor === true && f.approxAge !== undefined && f.approxAge >= 18), {
     path: ["isMinor"],
     message: t.age.adultMarkedChild,
+  })
+  // A known child (marked under 18, or an age under 18): "is an adult from their family with them?" must
+  // really be answered. When nothing is known about the age it stays optional: only the name is required.
+  .refine((f) => !knownChild(f.isMinor, f.approxAge) || f.unaccompanied !== undefined, {
+    path: ["unaccompanied"],
+    message: t.register.answerAdult,
   });
+
+// Under 18, or nobody knows: the same rule as the database's treated_as_minor().
+export function mayBeChild(isMinor: boolean | null | undefined, approxAge: number | undefined): boolean {
+  if (isMinor === true) return true;
+  if (isMinor === false) return false;
+  return approxAge === undefined || approxAge < 18;
+}
+
+const knownChild = (isMinor: boolean | null | undefined, approxAge: number | undefined) =>
+  isMinor === true || (isMinor !== false && approxAge !== undefined && approxAge < 18);
+
+// What is sent: an adult's "adult with them" answer is meaningless, so it's always false for them.
+export const unaccompaniedToSend = (f: RegisterForm) => (mayBeChild(f.isMinor, f.approxAge) ? f.unaccompanied === true : false);
 
 export type RegisterForm = z.infer<typeof registerSchema>;
 export type RegisterInput = z.input<typeof registerSchema>;   // what the boxes hold before the rules run
@@ -98,7 +117,7 @@ export const registerDraftSchema = z
     preferredName: z.string(),
     otherNames: z.array(z.string()),
     approxAge: z.union([z.string(), z.number(), z.null()]),
-    isMinor: z.boolean(),
+    isMinor: z.boolean().nullable(),
     unaccompanied: z.boolean(),
     homeArea: z.string(),
     description: z.string(),

@@ -2,7 +2,7 @@
 // The one place where the form becomes the backend's request.
 // `id` is made once when the form opens and kept in the draft, so every retry re-sends the SAME id.
 import type { RegisterPersonRequest } from "../api/types";
-import type { RegisterForm } from "./registerSchema";
+import { unaccompaniedToSend, type RegisterForm } from "./registerSchema";
 
 export function toRegisterRequest(id: string, f: RegisterForm): RegisterPersonRequest {
   return {
@@ -10,8 +10,8 @@ export function toRegisterRequest(id: string, f: RegisterForm): RegisterPersonRe
     preferredName: f.preferredName,
     otherNames: f.otherNames,
     approxAge: f.approxAge,
-    isMinor: f.isMinor,
-    unaccompanied: f.unaccompanied,
+    isMinor: f.isMinor ?? null,
+    unaccompanied: unaccompaniedToSend(f),
     homeArea: f.homeArea,
     description: f.description,
     phone: f.phone,

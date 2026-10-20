@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.security.SecureRandom
 import java.util.UUID
 
@@ -78,6 +79,77 @@ class ReunionCodeService(
         audit.log(staff, "CODE_ISSUED", personId)
     }
 
+    // Someone with no phone shows their slip at ANY desk; a volunteer types the code and PIN.
+    // Returns whose slip it is, or null. A wrong code, a locked code and a wrong PIN all return null
+    // after the same BCrypt work, and nothing is thrown, so the failure count is saved.
+    // @Transactional: the row lock (FOR UPDATE) holds until the count is saved, so parallel guesses wait in line.
+    @Transactional
+    fun lookup(
+        code: String,
+        pin: String,
+        staff: StaffPrincipal,
+    ): UUID? {
+        // FOR UPDATE: guesses sent at the same time are counted one by one, so none slip past the limit.
+        // Only working codes: an old (voided) slip or a blank pre-printed slip never opens anything.
+        val rc =
+            jdbc
+                .sql(
+                    """
+                    SELECT person_id, pin_hash, locked_until > now() AS locked FROM reunion_codes
+                    WHERE code = :code AND voided_at IS NULL AND person_id IS NOT NULL
+                    FOR UPDATE
+                    """.trimIndent(),
+                ).param("code", normalize(code))
+                .query { rs, _ -> Triple(rs.getObject("person_id", UUID::class.java), rs.getString("pin_hash"), rs.getBoolean("locked")) }
+                .optional()
+                .orElse(null)
+        if (rc == null || rc.third) {
+            encoder.matches(pin, DUMMY_HASH) // same work as a real check, so timing gives nothing away
+            audit.log(staff, "CODE_LOOKUP_FAILED", rc?.first)
+            return null
+        }
+        val (personId, hash, _) = rc
+        if (!encoder.matches(pin.trim(), hash)) {
+            // The 5th wrong PIN locks the slip for 15 minutes (and starts counting again after that).
+            jdbc
+                .sql(
+                    """
+                    UPDATE reunion_codes
+                    SET failed_attempts = CASE WHEN failed_attempts + 1 >= :max THEN 0 ELSE failed_attempts + 1 END,
+                        locked_until = CASE WHEN failed_attempts + 1 >= :max THEN now() + interval '15 minutes' ELSE locked_until END
+                    WHERE code = :code
+                    """.trimIndent(),
+                ).param("max", MAX_TRIES)
+                .param("code", normalize(code))
+                .update()
+            audit.log(staff, "CODE_LOOKUP_FAILED", personId)
+            return null
+        }
+        jdbc
+            .sql(
+                "UPDATE reunion_codes SET failed_attempts = 0, locked_until = NULL WHERE code = :code",
+            ).param("code", normalize(code))
+            .update()
+        audit.log(staff, "CODE_LOOKUP", personId)
+        return personId
+    }
+
+    // A lost slip (lead only): the old code stops working and a new one is printed, in one transaction.
+    fun reissue(
+        personId: UUID,
+        staff: StaffPrincipal,
+    ): Pair<String, String> {
+        jdbc.sql("UPDATE reunion_codes SET voided_at = now() WHERE person_id = :p AND voided_at IS NULL").param("p", personId).update()
+        audit.log(staff, "CODE_REISSUED", personId)
+        return issueNew(personId, staff)
+    }
+
+    // "hw-7k3p", " HW-7K3P " and "7K3P" are all the slip HW-7K3P.
+    private fun normalize(code: String): String {
+        val c = code.trim().uppercase()
+        return if (c.startsWith("HW-")) c else "HW-$c"
+    }
+
     private fun hasWorkingSlip(personId: UUID) =
         jdbc
             .sql("SELECT EXISTS (SELECT 1 FROM reunion_codes WHERE person_id = :p AND voided_at IS NULL)")
@@ -90,5 +162,9 @@ class ReunionCodeService(
 
     companion object {
         const val ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ" // same as the database: no 0/O, no 1/I
+        const val MAX_TRIES = 5
+
+        // A real BCrypt hash of a throwaway PIN, only used to spend the same time on a miss.
+        private const val DUMMY_HASH = "\$2a\$10\$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
     }
 }

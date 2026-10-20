@@ -207,6 +207,42 @@ unknown field "ssn"                    → {"message":"Something in this form is
 
 **After the fixes:** `./gradlew build` → **40 tests, 0 failed**; `scripts/db-test.sh` all passed (05: 37).
 
-## B5–B6
+## B5. Consent and protection
+
+**Branch:** `feature/backend-consent`.
+
+**Done** (`consent/` package, plus `ReunionCodeService.lookup/reissue`):
+- `SearcherStatus` (`consent/dto/searcher/`, sealed, `type` = Active / Safe / Connected): the only answer a searcher gets; no location field; only Connected carries the contact plan.
+- `VisibilityService.statusForSearcher`: allowed at the desk where the search was made or after the searcher's own slip was checked (session, 10 minutes); otherwise, and for no match / pending / declined / blocked / any active flag on the person, search or searcher: `{"type":"Active"}`. Reveals audited (`REVEALED_CONTACT`, `REVEALED_SAFE`).
+- `ConsentService`: `decide` (CONNECT / SAFE / NOT_NOW / DECLINE, at the person's desk or after their slip was checked), `connectFindable` (either desk, only `findable`, never a child), `releaseMinor` (lead route, guardian check + note + contact plan, approver from the login). Every change is `WHERE state = 'pending'`; flags checked in code, and a guard refusal from the database becomes the same plain "can't be shared" sentence. Audited (`DECISION`, `MINOR_RELEASED`).
+- `POST /api/lookup`: row lock, 5 wrong PINs → 15 minutes, unknown / locked / wrong all get the same reply after the same BCrypt work; a match lists the holder's own searches with their answers and how many requests wait for them. Audited right and wrong.
+- `GET /api/answers`, `POST /api/requests/{id}/decision`, `POST /api/requests/{id}/connect-findable`, `GET /api/searches/{id}/status`.
+- Lead (`/api/lead/**`): overview (children waiting, unaccompanied children, active flags), release a child, add / lift a flag (own shelter, audited), reissue a lost slip (old code voided in the same transaction).
+- DB review #2 (deadlock between Connect and an age correction / new flag): `retryOnce` runs the decision once more (PostgreSQL cancels one side and nothing of it is saved).
+
+**Found while building:** `treated_as_minor()` of the empty row from a LEFT JOIN (a search with no registered searcher) is `true` (unknown = child), so the SQL checks `sp.id IS NOT NULL` first. And a searcher registered with only a name counts as a child, so "Connect" then needs a lead: correct and safe, so F3 must ask whether the person searching is an adult.
+
+**Tests:** `./gradlew build` → **45 tests, 0 failed** (5 new in `ConsentApiTest`): no match / pending / declined / blocked / another desk → byte-identical `{"type":"Active"}` · Connect shows exactly `{"type":"Connected","contactPlan":…}` (no home area, phone or shelter), audited, and a flag added later turns it back into Active · a child: volunteer CONNECT → 409, volunteer on the lead route → 403, lead without check or with a blank note → 400, then released and audited · findable: other desk 404, "ask" person 409, connected at once, a later DECLINE can't overwrite · slip: another desk sees Active until the searcher's slip is checked there (lower case, no prefix), wrong PIN and unknown code get the identical reply, 5 wrong PINs lock even the right PIN, every lookup audited.
+
+**On Neon:** V5 applied (`now at version v5`).
+
+**Review** (`/code-review`; each finding checked against the code; the parallel-guess test was proven to fail without the fix):
+
+| # | Finding | Result |
+|---|---|---|
+| 1 | **`lookup` had no transaction**: the `FOR UPDATE` lock ended at once, so parallel guesses all got a full PIN check (the 5-try limit could be brute-forced) | **Fixed:** `@Transactional`; test: 23 parallel wrong PINs → locked, and the count is 0 (only 5 checked). Without the fix: `FAILED` |
+| 2 | **`release-minor` could connect any request**, e.g. an adult who never said yes, by a lead writing their own contact plan | **Fixed:** only when a child is involved; test |
+| 3 | The lead on the **asking** side could release a child at another shelter alone | **Fixed:** only a lead at the found person's desk (where the child is, or where the adult being asked says yes); test |
+| 4 | The "verified by slip" marker stayed 10 minutes on the shared desk session, even after the next person's failed check | **Fixed:** every lookup clears it first; `POST /api/lookup/end` when done; test |
+| 5 | "Safe" for a child skipped the lead | **Fixed:** "Safe" with a child involved → a lead decides; test |
+| 6 | Requests from a flagged searcher / search still listed, with their message to read out | **Fixed:** left out of Answers waiting; test |
+| 7 | Adding a flag could be the deadlock victim against a Connect: flag lost, Connect kept | **Fixed:** `LeadService.addFlag` is retried once like decisions |
+| 8 | Lead overview missed some child requests | **Fixed** by #3: it lists exactly what this lead can release (child requests at this desk) |
+| 9 | Unknown / locked code vs. wrong PIN take slightly different time (extra UPDATE) | **Noted:** both do one BCrypt check; the remaining difference is one small UPDATE, accepted for the demo (README tradeoffs) |
+| 10 | `LeadController` ran SQL and transactions itself | **Fixed:** moved to `LeadService` |
+
+**After the fixes:** `./gradlew build` → **48 tests, 0 failed**.
+
+## B6
 
 _Not started (re-planned in plan mode when reached)._

@@ -71,6 +71,7 @@ Every step: `feature/database-<step>` branch off develop → small commits → `
 
 ### Step 4. Safe matching (`V2__safe_matching.sql`)
 - Test `04_matching.sql`: misspellings, sound-alike, nicknames, accents, one-sided ages, hidden adult and hidden child never found, view has no location, ranking.
+- **Fix found in the setup review (Codex P2):** the 100-candidate cut in `find_candidates` currently ignores age, so with more than 100 near-identical names the only right-aged person could be dropped. Add the age signal to the ordering **before** the cut (unknown age = neutral), and a crowded-name test: 120 people named "Maria Garcia", only one aged 80, who must come back first for an age range of 75–85. Update DATABASE.md's excerpt to match.
 - Seed grows to ~200 fictional people with messy names; time `find_candidates` on Neon (closes the "scale" open item).
 
 ### Step 5. Consent and protection (`V3__consent_and_protection.sql`)

@@ -537,6 +537,8 @@ export interface components {
         LookupOut: {
             found?: boolean;
             message?: string | null;
+            /** Format: uuid */
+            personId?: string | null;
             personName?: string | null;
             searches?: components["schemas"]["SearchAnswer"][];
             /** Format: int32 */
@@ -618,9 +620,9 @@ export interface components {
             personVisibility?: string;
         };
         CsrfToken: {
+            headerName?: string;
             parameterName?: string;
             token?: string;
-            headerName?: string;
         };
     };
     responses: never;

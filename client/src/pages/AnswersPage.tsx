@@ -13,15 +13,17 @@ import { t } from "../strings";
 
 type Choice = "CONNECT" | "SAFE" | "NOT_NOW" | "DECLINE";
 
-export function AnswersPage() {
+// onlyPersonId: after a slip check, show only that person's requests (never other people sheltered here).
+export function AnswersPage({ onlyPersonId }: { onlyPersonId?: string }) {
   const waiting = useQuery({ queryKey: ["answers"], queryFn: () => api<WaitingRequest[]>("/api/answers") });
   if (waiting.isError) return <p role="alert">{t.problem.noConnection}</p>;
   if (!waiting.data) return null;
+  const list = onlyPersonId ? waiting.data.filter((r) => r.personId === onlyPersonId) : waiting.data;
   return (
     <div className="stack">
       <h2>{t.answers.title}</h2>
-      {waiting.data.length === 0 && <p role="status">{t.answers.none}</p>}
-      {waiting.data.map((r) => <Answer key={r.requestId} request={r} />)}
+      {list.length === 0 && <p role="status">{t.answers.none}</p>}
+      {list.map((r) => <Answer key={r.requestId} request={r} />)}
     </div>
   );
 }

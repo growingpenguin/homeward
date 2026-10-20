@@ -98,6 +98,30 @@ The 10-minute lock itself wasn't waited out by hand; the server side is tested i
 **After the fixes:** `npm run lint` 0 errors · `npm test` **10 passed** (new: reload onto a locked server opens the lock screen and the right PIN opens the app · unlock after the server forgot the session goes to the login · a failed log out keeps you logged in and says so) · `npm run build` passed.
 **Real run again** (Volunteer Riley, Eastside): `GET /api/me 401` → `POST /api/login 200` → Home → `GET /api/csrf 200` (login had cleared the cookie) → `POST /api/logout 204` → login page.
 
-## F2–F4
+## F2. Register flow and slip
 
-_Not started._
+**Branch:** `feature/frontend-register`
+
+**Done:**
+- **Register** (`/register`): first "Are you copying paper forms?", then one question per screen with "Step n of N": (paper: sheet/line, date, slip code) → name and other names → age, "under 18?", and "is an adult from their family with them?" (only when they may be a child) → the three privacy cards (Ask me first selected) → optional extras → check and save. react-hook-form with the existing zod schema; `forms/PersonFields.tsx` holds each step's questions (shared with Edit).
+- Every change goes into the draft (`useDraft`, per volunteer) with the record id made when the form opened; a save that failed for network/5xx is retried with the **same id**. Paper mode keeps paper mode and the date for the next form.
+- **Slip** (`/persons/:id/slip`): "Print a slip" → code, PIN (shown once, `gcTime: 0` so it's dropped when the screen closes), shelter, desk phone, print CSS prints only the slip; a person who already has one shows "already has a slip". Links: fix a mistake, next person, home.
+- **Edit** (`/persons/:id/edit`): the same questions on one page; always sends the privacy choice and "adult with them" (the backend refuses an edit without them).
+- F0 review #7: the backend's limits (10 other names, 100/200/40/100 characters) checked in the form with plain sentences; blank other names are dropped instead of failing in zod's English.
+
+**Changed from the plan:** `zodResolver` needs one cast (`personResolver` in `registerSchema.ts`): @hookform/resolvers 3 predates react-hook-form's input/output types, and version 5 needs a newer zod than the 3.23.8 FRONTEND.md was checked with.
+
+**Tests:** `npm run lint` 0 errors · `npm test` 3 files, **14 passed** (new: only the name is required, Ask me first is sent by default, a 503 then success re-sends the same id · paper step refuses to go on without sheet/line and date · a reload keeps the draft with the same record id · the slip shows code and PIN after "Print a slip").
+
+**Real run** (backend against Neon + `npm run dev`, Playwright, Volunteer Alex, fictional people):
+```
+POST /api/login 200 → Someone is here → "Tomas Brightwater", others "Tommy, T.B.", 67, 18 or over, Keep me out of searches, Harbor Point
+POST /api/persons 201 → POST …/slip 201 → slip: Lincoln High Shelter, HW-DFP3, PIN ****, 555-0101
+Fix a mistake → phone 555-0199 → PUT 200 → stored: otherNames [Tommy, T.B.], age 67, isMinor false, visibility hidden (kept), phone 555-0199, hasSlip true
+Next person → paper mode → Next without details: both paper sentences shown → "Sheet 2, line 7", 2026-10-18, "Nell Okafor-Reyes" → POST 201
+stored: source paper, paperRef "Sheet 2, line 7", recordedAt 2026-10-18T12:00:00Z → next form opens in paper mode with the date kept
+```
+
+## F3–F4
+
+_Not started (planned in plan mode with DB steps 4–5 and B4–B5)._

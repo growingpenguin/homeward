@@ -28,8 +28,10 @@ object TestDatabase {
             .migrate()
         DriverManager.getConnection(db.jdbcUrl, db.username, db.password).use { conn ->
             conn.createStatement().use { st ->
-                // The demo seed arrives with the database step 3 branch; load it whenever it's there.
-                File("src/main/resources/db/seed/demo_seed.sql").takeIf { it.exists() }?.let { st.execute(it.readText()) }
+                // Gradle runs tests from server/; fail loudly if the seed can't be found.
+                val seed = File("src/main/resources/db/seed/demo_seed.sql")
+                check(seed.exists()) { "Demo seed not found at ${seed.absolutePath} (run tests from server/ with Gradle)" }
+                st.execute(seed.readText())
                 st.execute("ALTER ROLE homeward_app PASSWORD '$APP_PASSWORD'")
             }
         }

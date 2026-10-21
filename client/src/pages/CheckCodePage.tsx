@@ -81,7 +81,7 @@ export function CheckCodePage() {
         )}
         {found.searches.map((s) => (
           <button key={s.searchId} type="button" onClick={() => navigate(`/searches/${s.searchId}`)}>
-            {t.search.open(s.soughtNames.join(", "))}: {t.search.checkAgain_btn}
+            {t.search.open(s.soughtNames.join(", "))}
           </button>
         ))}
         {found.answersWaiting > 0 && (

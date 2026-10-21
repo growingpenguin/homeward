@@ -1,7 +1,7 @@
 // App.tsx: who is logged in decides what is shown. Logged in, everything sits inside AppShell (idle lock).
 import { useEffect } from "react";
 import { QueryClientProvider, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router";
+import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router";
 import { authEvents, getMe, logout, stillHere, verifyPin } from "./api/client";
 import { queryClient } from "./api/queryClient";
 import type { Me } from "./api/types";
@@ -22,6 +22,7 @@ import { t } from "./strings";
 
 function Session() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   // Changes to the session arrive as events (login, lock, expired), so no refetching on focus.
   const me = useQuery({ queryKey: ["me"], queryFn: getMe, staleTime: Infinity, refetchOnWindowFocus: false });
 
@@ -66,7 +67,16 @@ function Session() {
       </main>
     );
   }
-  if (me.data === null || me.data === undefined) return <LoginPage onLoggedIn={(m: Me) => qc.setQueryData(["me"], m)} />;
+  if (me.data === null || me.data === undefined) return (
+      <LoginPage
+        onLoggedIn={(m: Me) => {
+          qc.setQueryData(["me"], m);
+          // Always start at home: the address of the screen the last person left (a slip, a person at
+          // another shelter) must never be what the next login opens.
+          navigate("/", { replace: true });
+        }}
+      />
+    );
 
   // Lead tools are shown only to leads; the backend refuses them to anyone else anyway (/api/lead/**).
   const isLead = me.data !== "locked" && (me.data.role === "lead" || me.data.role === "coordinator");
@@ -74,7 +84,10 @@ function Session() {
     <AppShell verifyPin={unlockAndReload} stillHere={stillHere} startLocked={me.data === "locked"}>
       <header className="top-bar no-print">
         {me.data !== "locked" && <span>{t.home.hello(me.data.displayName)}</span>}
-        <button type="button" onClick={() => signOut.mutate()} disabled={signOut.isPending}>{t.home.logout}</button>
+        <nav className="top-bar__buttons">
+          <button type="button" onClick={() => navigate("/")}>{t.home.home}</button>
+          <button type="button" onClick={() => signOut.mutate()} disabled={signOut.isPending}>{t.home.logout}</button>
+        </nav>
       </header>
       {signOut.isError && <p role="alert" className="no-print">{t.home.logoutFailed}</p>}
       <main>

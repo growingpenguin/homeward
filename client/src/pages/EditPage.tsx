@@ -43,7 +43,7 @@ function EditForm({ person }: { person: PersonView }) {
     mutationFn: (body: EditPersonRequest) => api<PersonView>(`/api/persons/${person.id}`, { method: "PUT", body, userAction: true }),
     onSuccess: (p) => {
       qc.setQueryData(["person", p.id], p);
-      navigate(`/persons/${p.id}/slip`);
+      navigate(`/persons/${p.id}/slip`, { state: { saved: true } });
     },
     onError: (e) => setProblem(e instanceof HttpError && e.status < 500 ? e.message : t.problem.noConnection),
   });

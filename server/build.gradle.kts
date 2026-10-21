@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "app.homeward"
-version = "1.0.2"
+version = "1.0.3"
 
 java {
     toolchain {

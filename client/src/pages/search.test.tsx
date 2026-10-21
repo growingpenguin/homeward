@@ -143,3 +143,25 @@ test("check a code: a miss gets the plain sentence; a match turns the screen aro
   expect(sent.some((s) => s.path === "/api/lookup/end")).toBe(true);
   expect(await screen.findByRole("heading", { name: "Check a code" })).toBeInTheDocument();
 });
+
+test("the same person can look for another relative: a new search, the same searcher (one slip covers both)", async () => {
+  const sent = fakeBackend({
+    "POST /api/persons": { status: 201, body: {} },
+    "POST /api/searches": () => ({ status: 201, body: { searchId: "s" + sent.length, searcherPersonId: "x", soughtNames: ["A"], matches: [] } }),
+  });
+  const user = at("/search");
+  await user.type(screen.getByLabelText("Their name or nickname"), "Ilse Varnhagen");
+  await user.click(screen.getByRole("radio", { name: "Yes" }));
+  await user.click(screen.getByRole("button", { name: "Next" }));
+  await user.type(await screen.findByLabelText(/Name or names/), "Otto Varnhagen");
+  await user.click(screen.getByRole("button", { name: "Search" }));
+  await user.click(await screen.findByRole("button", { name: /Look for someone else too/ }));
+  await user.type(await screen.findByLabelText(/Name or names/), "Greta Varnhagen");
+  await user.click(screen.getByRole("button", { name: "Search" }));
+  await screen.findByRole("button", { name: /Look for someone else too/ });
+  const searches = sent.filter((s) => s.path === "/api/searches").map((s) => s.body as { id: string; searcherPersonId: string });
+  expect(searches).toHaveLength(2);
+  expect(searches[0].searcherPersonId).toBe(searches[1].searcherPersonId);   // one person, one slip
+  expect(searches[0].id).not.toBe(searches[1].id);                           // two searches
+  expect(sent.filter((s) => s.path === "/api/persons")).toHaveLength(1);    // registered once
+});

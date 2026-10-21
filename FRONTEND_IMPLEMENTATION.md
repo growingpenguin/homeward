@@ -283,3 +283,19 @@ Frontend tests 26 to **34**. Each test was seen failing under a temporary mutati
 `npm run lint` 0 errors · `npm test` 34 passed.
 
 **Noticed, not changed:** `mayBeChild` in `forms/registerSchema.ts` mirrors the old `treated_as_minor`; after V6 the server also counts an estimated age under 21 as a child, so for an estimated 18 to 20 marked "18 or over" the form does not ask "is an adult with them?" while the server treats the person as a child. This is safe (the server decides) and is left for a follow-up.
+
+## Evaluator findings (release 1.0.3)
+
+**Why:** a Sonnet agent tested the live app as an evaluator would, from the challenge text only and without reading any code: 35 cases, 30 pass, 4 partial, 1 fail (`TEST_CASES.md`). A second agent wrote `USER_GUIDE.md` by using the app.
+
+**Fixed:**
+- **T15 (fail):** each new search registered a new person, so a person looking for two relatives had two identities and their slip showed only the first search. Now **Look for someone else too** starts a new search (new id) for the same person.
+- **T29:** "Check again" existed only in the API. Now **Check a code** lists the person's searches, and `SavedSearchPage` has **Check again for new matches** (own shelter; another shelter gets a plain sentence).
+- **T22:** the release-box wording is fixed.
+- The slip heading says "is saved" only right after a save.
+- "Tell X that Y is safe (not where)" wording.
+- "Answer saved." / "still waiting" confirmations.
+
+**Kept:** unknown age = child (safe side); duplicate registrations not flagged (README limit).
+
+**Tests:** `npm test` **36 passed** (new: one person, two searches, registered once); lint 0 errors; build passed; backend build passed. **Real run** (local against Neon, fresh browser): Cora searched for her brother, then **Look for someone else too** for her sister. Her one slip showed "2 searches": the brother's "They want to connect…" and the sister's "Your request is saved…". The sister was registered later, and **Check again for new matches** found her. "Answer saved." was shown after Connect.

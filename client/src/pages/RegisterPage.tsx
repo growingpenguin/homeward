@@ -84,7 +84,7 @@ export function RegisterPage({ staffId }: { staffId: string }) {
         onSuccess: (p, r) => {
           if (r.source === "paper") draft.reset(blank({ fromPaper: true, paperDate: form.getValues("paperDate") }));
           else draft.clear();
-          if (sameAsSent(p, r)) navigate(`/persons/${p.id}/slip`);
+          if (sameAsSent(p, r)) navigate(`/persons/${p.id}/slip`, { state: { saved: true } });
           else navigate(`/persons/${p.id}/edit`, { state: { notice: t.register.alreadySaved } });
         },
         onError: (e) => setProblem(e instanceof HttpError && e.status < 500 ? e.message : t.problem.noConnection),

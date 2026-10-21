@@ -9,8 +9,8 @@
 
 ## Sources (read in this order)
 1. `CLAUDE.md` (rules, commands, invariants) · `README.md` (what it does, how to try it)
-2. Design: `PROPOSAL.md`, `DATABASE.md`, `BACKEND.md`, `FRONTEND.md`
-3. Plans and logs: `DATABASE_PLAN.md` / `DATABASE_IMPLEMENTATION.md`, `BACKEND_PLAN.md` / `BACKEND_IMPLEMENTATION.md`, `FRONTEND_PLAN.md` / `FRONTEND_IMPLEMENTATION.md` (every review table and fix is logged there)
+2. Design: `PROPOSAL.md`, `DATABASE/DATABASE.md`, `BACKEND/BACKEND.md`, `FRONTEND/FRONTEND.md`
+3. Plans and logs: `DATABASE/DATABASE_PLAN.md` / `DATABASE/DATABASE_IMPLEMENTATION.md`, `BACKEND/BACKEND_PLAN.md` / `BACKEND/BACKEND_IMPLEMENTATION.md`, `FRONTEND/FRONTEND_PLAN.md` / `FRONTEND/FRONTEND_IMPLEMENTATION.md` (every review table and fix is logged there)
 4. Code: `server/src/main/resources/db/migration/V1–V5`, `server/src/main/kotlin/app/homeward/{security,person,match,consent,audit,db,web}`, `client/src/{pages,components,api,forms,hooks}`; tests in `server/src/test/` and `client/src/**/*.test.tsx`
 5. `AI_NOTES.md` (append an entry for your session)
 

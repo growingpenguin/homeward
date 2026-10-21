@@ -144,7 +144,7 @@ The full problem has many parts (registration, transport, family tracing, medica
 - A hidden child doesn't show up in searches. A guardian looking for them goes through a lead, who can find and check them (the database allows a lead to find hidden people, but a lead search screen is not built (planned)). Release always requires a **supervisor sign-off** with a verification checklist (knowledge questions, child recognises adult if age-appropriate, cross-check with school list). A matching name is not enough.
 - Custody disputes / safety concerns → supervisor can place a **hold** that stops release and escalates (the UI sets only `do_not_disclose`; other flag kinds go through the API).
 
-## 6. Data model (draft; the final, tested version is in [`DATABASE.md`](DATABASE.md))
+## 6. Data model (draft; the final, tested version is in [`DATABASE.md`](DATABASE/DATABASE.md))
 
 ```
 shelters        (id, name, area, desk_phone, created_at)
@@ -261,7 +261,7 @@ The lab mostly uses React + Node. I kept React, but chose **Kotlin + Spring Boot
 - SQLite: free hosts wipe the file on redeploy.
 - Firebase: no fuzzy search, security rules are easy to get wrong.
 
-Details: [`DATABASE.md`](DATABASE.md).
+Details: [`DATABASE.md`](DATABASE/DATABASE.md).
 
 #### 2. Backend: Kotlin + Spring Boot
 
@@ -293,7 +293,7 @@ Details: [`DATABASE.md`](DATABASE.md).
 | Java + Spring Boot | Most familiar enterprise stack | Same framework benefits, but more boilerplate and no null safety |
 | Kotlin + Ktor | Lighter, faster cold start | Login, roles, validation and migrations would be built by hand: more security-critical code for me to get right. **My fallback if cold start becomes a problem** |
 
-Details, including NestJS and FastAPI, plus a scorecard against the scenario's needs: [`BACKEND.md`](BACKEND.md).
+Details, including NestJS and FastAPI, plus a scorecard against the scenario's needs: [`BACKEND.md`](BACKEND/BACKEND.md).
 
 #### 3. Frontend: React + Vite + TypeScript
 | Why it's better here | What it gives this project |
@@ -311,7 +311,7 @@ Details, including NestJS and FastAPI, plus a scorecard against the scenario's n
 - Server-rendered Thymeleaf/htmx: lightest, but a weaker fit for "a frontend that talks to a backend", and it loses the typed client.
 - Native mobile app: survivors don't have phones, and shelter devices are mixed and borrowed. A web link works on anything and can print.
 
-Details, including the library choices and a scorecard against the scenario's needs: [`FRONTEND.md`](FRONTEND.md).
+Details, including the library choices and a scorecard against the scenario's needs: [`FRONTEND.md`](FRONTEND/FRONTEND.md).
 
 #### 4. Deployment: Netlify + Render + Neon
 - **Netlify** serves the React app, so the page **opens instantly** even while the backend is waking up. It shows "Connecting. Please wait" instead of a blank screen.

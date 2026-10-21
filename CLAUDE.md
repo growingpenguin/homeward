@@ -11,18 +11,18 @@ Guidance for Claude (and other AI assistants) working in this repository.
 ## Planning and implementation: plan mode first, always
 
 - **Every implementation phase starts in plan mode.** Plan first, get the plan approved, then execute. Never start building a phase without an approved plan.
-- **Order:** the design docs (`DATABASE.md`, `BACKEND.md`, `FRONTEND.md`) set the architecture. Building then goes **one feature at a time across all three layers** (database → backend → frontend, then test the whole flow): registration first, then safe matching, then consent and protection, then a complete reunion test.
+- **Order:** the design docs (`DATABASE/DATABASE.md`, `BACKEND/BACKEND.md`, `FRONTEND/FRONTEND.md`) set the architecture. Building then goes **one feature at a time across all three layers** (database → backend → frontend, then test the whole flow): registration first, then safe matching, then consent and protection, then a complete reunion test.
 - **Safety before search:** login, the "Ask me first" default and access rules are in place **before** any search is reachable.
-- **Two files per layer:**
-  - `DATABASE_PLAN.md`, `BACKEND_PLAN.md`, `FRONTEND_PLAN.md`: the approved plan for that layer, step by step.
-  - `DATABASE_IMPLEMENTATION.md`, `BACKEND_IMPLEMENTATION.md`, `FRONTEND_IMPLEMENTATION.md`: a record of how each step was actually built: what was done, commands run, test results (with output), and anything that changed from the plan and why.
+- **Two files per layer** (in that layer's folder: `DATABASE/`, `BACKEND/`, `FRONTEND/`):
+  - `DATABASE/DATABASE_PLAN.md`, `BACKEND/BACKEND_PLAN.md`, `FRONTEND/FRONTEND_PLAN.md`: the approved plan for that layer, step by step.
+  - `DATABASE/DATABASE_IMPLEMENTATION.md`, `BACKEND/BACKEND_IMPLEMENTATION.md`, `FRONTEND/FRONTEND_IMPLEMENTATION.md`: a record of how each step was actually built: what was done, commands run, test results (with output), and anything that changed from the plan and why.
 - Update the `_IMPLEMENTATION.md` file after each step, not at the end.
 
 ## What this project is
 
 **Homeward** is a shelter-run family reunification app for the Fullstack Challenge 26F scenario: a hurricane evacuation of ~400,000 people, families separated across dozens of shelters, many people with **no phone, no ID**, and some who **do not want to be found**.
 
-The app is operated by **shelter volunteers on behalf of survivors**. It covers: intake ("I'm here" / "I'm looking for someone") → fuzzy matching across shelters → consent-gated contact → reconnect. Read `PROPOSAL.md` for the full design, users, edge cases and scope, and `BACKEND.md`, `DATABASE.md` and `FRONTEND.md` for how each hard requirement maps to the backend, database and frontend, before making product decisions. The schema lives in the Flyway migrations in `server/src/main/resources/db/migration/` (`V1`–`V5`, built step by step; see `DATABASE_PLAN.md`); `db/draft/full_schema_draft.sql` is the complete tested draft they were split from (reference only).
+The app is operated by **shelter volunteers on behalf of survivors**. It covers: intake ("I'm here" / "I'm looking for someone") → fuzzy matching across shelters → consent-gated contact → reconnect. Read `PROPOSAL.md` for the full design, users, edge cases and scope, and `BACKEND/BACKEND.md`, `DATABASE/DATABASE.md` and `FRONTEND/FRONTEND.md` for how each hard requirement maps to the backend, database and frontend, before making product decisions. The schema lives in the Flyway migrations in `server/src/main/resources/db/migration/` (`V1`–`V5`, built step by step; see `DATABASE/DATABASE_PLAN.md`); `db/draft/full_schema_draft.sql` is the complete tested draft they were split from (reference only).
 
 ## Privacy and safety invariants: never break these
 
@@ -58,7 +58,7 @@ If a requested change would break one of these, stop and flag it instead of impl
 - **Tests:** JUnit 5 + Testcontainers (real Postgres) + MockMvc on the backend; Vitest on the frontend
 - **Deploy:** Netlify (frontend, proxies `/api/*`) → Render (backend, Docker) → Neon (Postgres)
 
-Why this stack: see `PROPOSAL.md` section 11, and `DATABASE.md`, `BACKEND.md`, `FRONTEND.md` for the full comparisons.
+Why this stack: see `PROPOSAL.md` section 11, and `DATABASE/DATABASE.md`, `BACKEND/BACKEND.md`, `FRONTEND/FRONTEND.md` for the full comparisons.
 
 ## Planned layout
 
@@ -80,7 +80,8 @@ server/                          Kotlin + Spring Boot
   src/test/kotlin/               JUnit + Testcontainers tests
 docs/                            screenshots (a printable paper form is not built (planned))
 PROPOSAL.md                      Design proposal
-BACKEND.md, DATABASE.md, FRONTEND.md   Why each part was chosen and how it meets each requirement
+FRONTEND/, BACKEND/, DATABASE/      Per layer: <LAYER>.md (why it was chosen, how it meets each requirement),
+                                   <LAYER>_PLAN.md (the approved plan), <LAYER>_IMPLEMENTATION.md (how it was built, with test results)
 AI_NOTES.md                      How AI tools were used (required by the challenge)
 Homeward_Design.pptx             Design deck (database, backend and frontend)
 README.md                        Submission README (overview, full picture, design, technical choices)

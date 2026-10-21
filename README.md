@@ -17,7 +17,7 @@ The seeded data is fictional: three shelters, six staff and 200 generated names.
 
 ---
 
-> **New here?** The **[User guide](USER_GUIDE.md)** explains every screen step by step, with a 5-minute walkthrough. **[Test cases](TEST_CASES.md)**: 35 tests an evaluator would run, written from the challenge only and run on the live site.
+> **New here?** The **[User guide](USER_GUIDE/USER_GUIDE.md)** includes the full guide plus illustrated walkthroughs for [volunteers](USER_GUIDE/VOLUNTEER.md), [leads](USER_GUIDE/LEAD.md) and [people asking for help](USER_GUIDE/PERSON_LOOKING_FOR_HELP.md). **[Test cases](TEST_CASES.md)**: 35 tests an evaluator would run, written from the challenge only and run on the live site.
 
 ## Overview
 
@@ -47,7 +47,7 @@ The lead page holds children waiting for a sign-off, children without an adult, 
 ![Lead page](docs/screenshots/6-lead-page.png)
 
 ### Try it
-The [user guide](USER_GUIDE.md#try-the-whole-story-in-5-minutes) has a 5-minute walkthrough across three shelters, plus a child case and a protected person. In short: register someone at **Eastside**, search for them from **Lincoln** and print the searcher's slip, answer **Connect** at Eastside, then check the slip at **Westfield**.
+The [user guide](USER_GUIDE/USER_GUIDE.md#try-the-whole-story-in-5-minutes) has a 5-minute walkthrough across three shelters, plus a child case and a protected person. In short: register someone at **Eastside**, search for them from **Lincoln** and print the searcher's slip, answer **Connect** at Eastside, then check the slip at **Westfield**.
 
 If a demo login says "Too many tries", someone tested wrong PINs on it: use another of the six logins.
 
@@ -127,4 +127,4 @@ scripts/run-backend.sh                         # terminal 1: API on :8080
 Built one step at a time across the three layers, each planned first and logged as it went: [`DATABASE_PLAN.md`](DATABASE/DATABASE_PLAN.md) / [`_IMPLEMENTATION.md`](DATABASE/DATABASE_IMPLEMENTATION.md), [`BACKEND_PLAN.md`](BACKEND/BACKEND_PLAN.md) / [`_IMPLEMENTATION.md`](BACKEND/BACKEND_IMPLEMENTATION.md), [`FRONTEND_PLAN.md`](FRONTEND/FRONTEND_PLAN.md) / [`_IMPLEMENTATION.md`](FRONTEND/FRONTEND_IMPLEMENTATION.md). It followed git-flow (feature → PR into `develop` → release / hotfix into `main`), and every PR was reviewed before merging; the review tables are in the logs. How AI tools were used, including what they got wrong: [`AI_NOTES.md`](AI_NOTES.md). Design deck: `Homeward_Design.pptx`.
 
 ### What remains after the demo
-The core reunion is implemented and tested. A real-person usability study is still planned; the printable blank paper form, full offline mode, automatic search reruns and retention job are not built. Test results establish behavior in the covered cases, not readiness for a real disaster deployment.
+The core reunion is implemented and tested. Staff account management (adding volunteers or leads, role changes and staff PIN resets) is not built; demo accounts are seeded. Finding an existing adult record for lost-slip recovery also needs a better staff workflow. A real-person usability study is still planned; the printable blank paper form, full offline mode, automatic search reruns and retention job are not built. Test results establish behavior in the covered cases, not readiness for a real disaster deployment.

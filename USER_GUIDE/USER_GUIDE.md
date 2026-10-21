@@ -1,5 +1,15 @@
 # Homeward user guide
 
+Start with the guide that fits you:
+
+| I'm here as… | Open this |
+|---|---|
+| A volunteer at the desk | [Volunteer: a full practice from arrival to reunion](VOLUNTEER.md) |
+| A lead | [Lead: children, protection and lost slips](LEAD.md) |
+| Someone asking for help | [Your choices, your slip and checking for news](PERSON_LOOKING_FOR_HELP.md) |
+
+The original full guide is below. The role guides have fresh screenshots and step-by-step practice. Their screenshots use fictional people in a separate local copy of Homeward 1.0.4; example slip codes do not work on the live demo.
+
 ## What Homeward is for
 
 After a hurricane, families end up in different shelters. Many have no phone and no ID.
@@ -7,11 +17,12 @@ Homeward lets shelter volunteers register people, look for relatives across all 
 Nobody is told where anyone is unless that person says yes.
 
 **Who uses it**
+
 - **Volunteer.** Works at a shelter desk. Registers people, searches, answers requests, checks slips.
 - **Lead.** A volunteer with extra powers: decides about children, protects people, reprints lost slips.
 - **The person at the desk** (someone who just arrived, or someone looking for family) never logs in. The volunteer does everything for them. At one moment you turn the screen towards them.
 
-![Home screen](docs/guide/1-home.png)
+![Home screen](../docs/guide/1-home.png)
 
 ---
 
@@ -35,6 +46,18 @@ The top bar shows who is logged in and a **Log out** button.
 
 ---
 
+## Can we add a volunteer or lead?
+
+**Not through the app yet.** The six logins above are demo accounts made during database setup. There is no staff sign-up, invitation or add-staff page. A lead can handle safety tasks, but cannot add volunteers, promote people or reset staff PINs from the app.
+
+For the demo, use the listed fictional accounts. For a new individual account, the project maintainer must arrange setup outside the app. Do not share a staff PIN or use a survivor's registration form to create a staff account.
+
+A sensible next feature would let a lead add volunteers at their own shelter, while a trusted administrator adds leads. That feature is not built. A coordinator role exists in the code, but this demo has no coordinator account or coordinator dashboard.
+
+## Getting back home
+
+Use **Back to home** when it appears. Otherwise, reopen the [Homeward home link](https://hilarious-cassata-a51a3c.netlify.app) in the same tab after finishing the current task. Save or write down a slip before leaving its screen.
+
 ## The 4 everyday jobs
 
 ### 1. Someone arrives at your shelter
@@ -54,6 +77,7 @@ The top bar shows who is logged in and a **Log out** button.
 6. Give the slip to the person. Tell them: any shelter can use it to check for news.
 
 **If you copy paper forms**
+
 1. Pick **Yes, I'm copying paper forms**.
 2. Step 1 asks where it is on the paper (for example "Sheet 4, line 12"), the date written on the paper, and a pre-printed slip code if one was handed out.
 3. Then go through the same questions and press **Save**.
@@ -75,9 +99,9 @@ The slip and PIN stay the same. After you leave the slip screen, a volunteer can
 7. Press **Send the request**. The card now says **Asked**.
 8. Press **Done: print their slip**, then **Print a slip**. Give the slip to the person looking. They use it to get the answer later.
 
-![Possible matches](docs/guide/3-search-results.png)
+![Possible matches](../docs/guide/3-search-results.png)
 
-If nobody matches, you see "No match yet. The search is saved…". Still print the slip. When they come back, use **Check a code**, then **Their search for … : Check again for new matches** (at this shelter) to look again, for example after paper forms were typed in.
+If nobody matches, you see "No match yet. The search is saved…". Still print the slip. When they come back, use **Check a code**, then open **Their search for … : Check again for new matches** at the shelter where the search was made. On the next page, press **Check again for new matches** to refresh the results, for example after paper forms were typed in.
 
 Looking for **more than one relative**? After the results, press **Look for someone else too**. It is the same person and the same slip, so one slip later shows the answers to all of their searches.
 
@@ -91,12 +115,11 @@ The request waits at the shelter where the person is registered.
    - **Connect with (name).** You type how they will meet (for example "Call the Eastside desk and ask for Odalys"). The screen shows exactly what will be shared. Press **Yes, share this**.
    - **Tell (searcher) that (name) is safe (not where).** The searcher learns the person is safe. Nothing else.
 
-   After any answer you see "Answer saved." **Not now** keeps the request waiting ("Okay. The request is still waiting; you can answer it later.").
    - **Not now.** The card stays in the list. Come back later.
    - **Say no to this request.** The card disappears. The searcher is never told "no". They just keep seeing "still looking".
-4. If the person chose **Tell them where I am**, the card says so. You still press the buttons yourself.
+4. After Connect, Safe or No, you see **Answer saved.** With **Not now**, the app says the request is still waiting. If the person chose **Tell them where I am**, the card says so. Staff still handle the contact plan and safety checks.
 
-![An answer card](docs/guide/4-answers-waiting.png)
+![An answer card](../docs/guide/4-answers-waiting.png)
 
 ### 4. Someone has a slip and wants news
 
@@ -113,13 +136,13 @@ This works at **any** shelter, not only the one that printed the slip.
 6. Press **Give the screen back to the volunteer**. You return to an empty **Check a code** screen.
 7. If you pressed **Finished with this person** instead, the screen also resets.
 
-![Turned screen](docs/guide/5-turned-screen.png)
+![Turned screen](../docs/guide/5-turned-screen.png)
 
 ---
 
 ## What the person can choose about being found
 
-You ask this question when you register someone. They can change it later with **Fix a mistake**.
+You ask this question when you register someone. Staff can change it from their existing slip page with **Fix a mistake**. If that page is no longer available, ask for help finding the existing record.
 
 | Option on screen | What it means, in the person's words |
 |---|---|
@@ -139,9 +162,9 @@ A child is never connected just because a name matches. A lead decides, because 
 A child's request shows on the volunteer's **Answers waiting** with the words "A child is involved, so a lead decides. Please ask a lead." and no buttons.
 
 1. Open **Lead page: children and safety flags**. Look under **Children waiting for a lead**.
-2. Check the adult in person. For example: does the child recognise them, do the details match?
-3. Tick **I checked the guardian**. Write a short note under **How you checked**.
-4. Tick **The person here agreed, in person** if the person being asked is an adult.
+2. Follow your shelter's safeguarding process to check the situation in person. A matching name alone is not enough, and the app cannot make this check for you.
+3. Tick **I checked the guardian…**. Write a short note under **How you checked**.
+4. Tick **The person at this desk agreed in person…** only when that is true. The form requires this box for every release, as well as the guardian check. If the child is the one searching, the adult being asked must agree too.
 5. Type **How they will meet**.
 6. Press **Check what will be shared**. Read the preview. Press **Yes, release: connect them**.
 
@@ -151,14 +174,14 @@ The same page lists **Children without an adult here**. Press a name to open tha
 
 Use this when someone says they are in danger from the person looking, or you think so.
 
-1. Open the person's slip page. (After you register them, or press **Fix a mistake** then **Save changes**, or press a child's name on the lead page.)
+1. Open the person's existing slip page at your shelter. You can reach it just after registration, from its saved page address, or by pressing a child's name under **Children without an adult here**. If a code and PIN are still showing, write them down, then press **Fix a mistake** → **Save changes** to return to the lead buttons.
 2. Press **Protect this person: never share anything (lead)**, then **Yes, protect them**.
 3. The page says "Protected. Nothing about them will be shared." Searches act as if the person is not here.
-4. The flag appears under **Safety flags at this shelter** on the lead page. Press **Lift this flag**, then **Yes, lift it**, to undo it.
+4. The flag appears under **Safety flags at this shelter** on the lead page. If it is appropriate to remove it, press **Lift this flag**, then **Yes, lift it**. This removes the flag; it does not reconnect an old blocked request. Protection cannot take back details someone already read.
 
 ### Lost slips (lead)
 
-1. Open the person's slip page (as above).
+1. Open the person's existing slip page (as above). The demo has no general person-list screen. If you cannot reopen the record, ask the project maintainer for help; do not register the person again.
 2. Press **Reprint a lost slip (lead)**. Read the warning: the old slip and PIN stop working.
 3. Press **Yes, make a new slip**. You get a new **Code** and **PIN**. Print it at once. The PIN is shown only once.
 
@@ -188,7 +211,7 @@ You will play a family reuniting across three shelters. Write down each code and
 
 Other people may have used the demo before you. **Answers waiting** can hold other cards. Look for your own names.
 
-**Bonus A, a child (3 minutes).** At Eastside register "Tamsin Quillfeather", age 9, **Under 18**, adult with them **No**, **Ask me first**. At Lincoln, search for her as "Bryn Quillfeather" and press **Ask this person**. At Eastside, Riley sees "A child is involved, so a lead decides" and no buttons. Log in as **Lead Morgan**, open **Lead page: children and safety flags** and do the six child steps. A check of Bryn's slip then shows the meeting plan.
+**Bonus A, a child (3 minutes).** At Eastside register "Tamsin Quillfeather", age 9, **Under 18**, adult with them **No**, **Ask me first**. At Lincoln, search for her as "Bryn Quillfeather", choose **Yes** for 18 or over, and press **Ask this person**. Send the request and print Bryn's slip. At Eastside, Riley sees "A child is involved, so a lead decides" and no buttons. Log in as **Lead Morgan**, open **Lead page: children and safety flags** and do the six child steps. A check of Bryn's slip then shows the meeting plan.
 
 **Bonus B, protection.** As Lead Morgan, register "Dorian Pike". Press **Fix a mistake**, **Save changes**. Press **Protect this person: never share anything (lead)**, **Yes, protect them**. Open the lead page. You see "Never share anything: Dorian Pike". Lift it.
 
@@ -207,13 +230,13 @@ After too many tries you may see "Too many tries. Please wait 15 minutes or ask 
 Check the code and the PIN against the slip. A wrong code and a wrong PIN give the same message. Too many wrong tries lock that slip for a while. The slip may also have been replaced by a lead (the old one stops working).
 
 **The search found nobody.**
-Try another spelling, a nickname, or remove the age range. Hidden or protected people are never found, and you cannot tell that from "not here yet". The search is saved. Give the searcher a slip; when they come back, **Check a code**, then **Check again for new matches** on their search (at the shelter where it was made) finds people registered since.
+Try another spelling, a nickname, or remove the age range. Hidden or protected people are never found, and you cannot tell that from "not here yet". The search is saved. Give the searcher a slip; when they come back, **Check a code**, then open their saved search at the shelter where it was made. Press **Check again for new matches** on that page to find people registered since.
 
 **A child shows no buttons.**
 That is correct. Ask a lead. See [Children](#children).
 
 **I made a typo.**
-Press **Fix a mistake** on the slip screen (right after saving), or register again. You can change anything except the slip.
+Press **Fix a mistake** on their slip screen, correct the details, then **Save changes**. Their slip stays the same. If you cannot reopen the existing record, ask for help. Do not register the person again to fix a typo.
 
 **I lost the PIN before printing.**
 A lead presses **Reprint a lost slip (lead)**. The old slip stops working.

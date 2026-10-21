@@ -86,3 +86,10 @@
 - Kept: git-flow; independently reviewed feature PRs into develop, then a release branch with synchronized backend/frontend versions. No production behavior or database migration changed in this release.
 - Checked: 155 SQL checks, the successful 52-test backend result (Gradle reused unchanged test inputs), 26 frontend tests, lint and both builds. Live deployment verification follows the merge and is recorded in the release notes.
 - Learned: distinguish a fresh test execution from a build that correctly reuses an unchanged successful test result, and distinguish a healthy endpoint from proof of which commit is deployed.
+
+
+## 2026-10-20: Role guides and following the tutorials
+- Asked: keep the existing guide, give each role a simple illustrated walkthrough, and follow the finished instructions in the browser. Also check whether new volunteers and leads can be added.
+- Kept: the original guide in `USER_GUIDE/`, three role guides, 16 real screenshots, and the verified three-shelter practice. Two full 19-check UI passes and four extra checks used fictional people in an isolated local database.
+- Changed/rejected: removed “register again” as advice for fixing a typo; corrected the lead's two required checkboxes; explained limited record recovery and that lifting protection does not reconnect an old request. Staff account creation is missing, so the guide says so instead of inventing steps. Fixed browser selectors that overlooked button hints and retook the paper screenshot without validation errors.
+- Learned: following a tutorial catches missing navigation steps, not just broken code. Checking a saved search requires opening it and then pressing its refresh button. A working login demo does not mean staff onboarding is implemented.

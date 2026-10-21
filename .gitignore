@@ -24,3 +24,8 @@ out/
 .mcp.json
 skills-lock.json
 .neon
+
+# Local assistant instructions and unused guide image (keep local copies)
+/AGENTS.md
+/CLAUDE.md
+/docs/guide/2-privacy-choice.png

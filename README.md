@@ -69,7 +69,7 @@ The challenge covers the whole reunification problem. I built **one complete loo
 
 **Users:** the main user is a **tired volunteer at 2 a.m.**, on a laptop or tablet, often on bad Wi-Fi. The survivor never logs in. They talk to the volunteer, and for a moment they see a screen turned towards them. Leads handle children, flags and lost slips (a lead reprints a slip from the person's slip page).
 
-**Usability choices** (details in [`FRONTEND.md`](FRONTEND.md)):
+**Usability choices** (details in [`FRONTEND.md`](FRONTEND/FRONTEND.md)):
 - **Three big buttons** on Home, **one question per screen**, "Step 2 of 5", and plain words in one file (`strings.ts`).
 - **"Say:" boxes** give the exact words to read out, so nobody has to improvise how to explain privacy.
 - **Only the name is required.** "I don't know" is always valid, and an unknown age is never `0`.
@@ -95,9 +95,9 @@ The challenge covers the whole reunification problem. I built **one complete loo
 
 | Layer | Choice | Why (full comparisons in the linked docs) |
 |---|---|---|
-| Database | **PostgreSQL 18 on Neon**, Flyway migrations V1–V5 | `pg_trgm` + `fuzzystrmatch` + `unaccent` for matching in SQL. **Triggers enforce the hardest rules** (children, flags, a request can't move, append-only audit). Database checks require recorded lead approval, a guardian check, and a note before connecting a child. The app connects as a least-privilege user. [`DATABASE.md`](DATABASE.md) |
-| Backend | **Kotlin + Spring Boot 4**, Spring JDBC (no JPA), Spring Security | Dedicated match types omit location; `SearcherStatus.Connected` carries only the consented contact plan. Visible, parameterized SQL. PIN login, CSRF, idle lock. [`BACKEND.md`](BACKEND.md) |
-| Frontend | **React 19 + Vite + TypeScript** (strict), TanStack Query, react-hook-form + zod | Types generated from the backend's OpenAPI; retries only where safe; drafts in `sessionStorage`. [`FRONTEND.md`](FRONTEND.md) |
+| Database | **PostgreSQL 18 on Neon**, Flyway migrations V1–V5 | `pg_trgm` + `fuzzystrmatch` + `unaccent` for matching in SQL. **Triggers enforce the hardest rules** (children, flags, a request can't move, append-only audit). Database checks require recorded lead approval, a guardian check, and a note before connecting a child. The app connects as a least-privilege user. [`DATABASE.md`](DATABASE/DATABASE.md) |
+| Backend | **Kotlin + Spring Boot 4**, Spring JDBC (no JPA), Spring Security | Dedicated match types omit location; `SearcherStatus.Connected` carries only the consented contact plan. Visible, parameterized SQL. PIN login, CSRF, idle lock. [`BACKEND.md`](BACKEND/BACKEND.md) |
+| Frontend | **React 19 + Vite + TypeScript** (strict), TanStack Query, react-hook-form + zod | Types generated from the backend's OpenAPI; retries only where safe; drafts in `sessionStorage`. [`FRONTEND.md`](FRONTEND/FRONTEND.md) |
 | Deploy | Netlify (frontend, proxies `/api/*`) → Render (Docker, free) → Neon | One origin for the browser, so the session and CSRF cookies are first-party |
 
 **Biggest tradeoff:** I chose **safety over reach and speed**. A volunteer-run desk, with no self-service app and no public search, reaches fewer people directly than a website anyone can search. But a public search would let an abuser look for the person who fled. Smaller ones:
@@ -116,7 +116,7 @@ scripts/db-test.sh                             # migrations + seed + 155 SQL che
 (cd client && npm ci && npm run lint && npm test && npm run build)    # 26 frontend tests
 ```
 
-For the app, create an ignored `.env.local` with `HOMEWARD_APP_DATABASE_URL` set to the least-privilege `homeward_app` connection URL for a database provisioned with V1–V5 and the fictional seed (see [`DATABASE_PLAN.md`](DATABASE_PLAN.md)). Do not source the file; the runner parses it. In two terminals, each starting at the repository root:
+For the app, create an ignored `.env.local` with `HOMEWARD_APP_DATABASE_URL` set to the least-privilege `homeward_app` connection URL for a database provisioned with V1–V5 and the fictional seed (see [`DATABASE_PLAN.md`](DATABASE/DATABASE_PLAN.md)). Do not source the file; the runner parses it. In two terminals, each starting at the repository root:
 
 ```bash
 scripts/run-backend.sh                         # terminal 1: API on :8080
@@ -124,7 +124,7 @@ scripts/run-backend.sh                         # terminal 1: API on :8080
 ```
 
 ### How it was built
-Built one step at a time across the three layers, each planned first and logged as it went: [`DATABASE_PLAN.md`](DATABASE_PLAN.md) / [`_IMPLEMENTATION.md`](DATABASE_IMPLEMENTATION.md), [`BACKEND_PLAN.md`](BACKEND_PLAN.md) / [`_IMPLEMENTATION.md`](BACKEND_IMPLEMENTATION.md), [`FRONTEND_PLAN.md`](FRONTEND_PLAN.md) / [`_IMPLEMENTATION.md`](FRONTEND_IMPLEMENTATION.md). It followed git-flow (feature → PR into `develop` → release / hotfix into `main`), and every PR was reviewed before merging; the review tables are in the logs. How AI tools were used, including what they got wrong: [`AI_NOTES.md`](AI_NOTES.md). Design deck: `Homeward_Design.pptx`.
+Built one step at a time across the three layers, each planned first and logged as it went: [`DATABASE_PLAN.md`](DATABASE/DATABASE_PLAN.md) / [`_IMPLEMENTATION.md`](DATABASE/DATABASE_IMPLEMENTATION.md), [`BACKEND_PLAN.md`](BACKEND/BACKEND_PLAN.md) / [`_IMPLEMENTATION.md`](BACKEND/BACKEND_IMPLEMENTATION.md), [`FRONTEND_PLAN.md`](FRONTEND/FRONTEND_PLAN.md) / [`_IMPLEMENTATION.md`](FRONTEND/FRONTEND_IMPLEMENTATION.md). It followed git-flow (feature → PR into `develop` → release / hotfix into `main`), and every PR was reviewed before merging; the review tables are in the logs. How AI tools were used, including what they got wrong: [`AI_NOTES.md`](AI_NOTES.md). Design deck: `Homeward_Design.pptx`.
 
 ### What remains after the demo
 The core reunion is implemented and tested. A real-person usability study is still planned; the printable blank paper form, full offline mode, automatic search reruns and retention job are not built. Test results establish behavior in the covered cases, not readiness for a real disaster deployment.

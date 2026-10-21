@@ -30,7 +30,7 @@ Homeward is the desk tool those volunteers use **on behalf of** survivors:
 3. **Answers waiting:** at the found person's own desk, a volunteer reads the message out, and **they decide**: *Connect*, *Tell them I'm safe (not where I am)*, *Not now* or *Say no*.
 4. **Check a code:** at **any** desk, the slip's code and PIN show the person looking their answer on a full-screen view. Every "no" looks exactly like "still looking".
 
-| Login | Home: three big buttons |
+| Login | Home: three big buttons and an Answers waiting button |
 |---|---|
 | ![Login](docs/screenshots/1-login.png) | ![Home](docs/screenshots/2-home.png) |
 
@@ -70,7 +70,7 @@ The challenge covers the whole reunification problem. I built **one complete loo
 **Users:** the main user is a **tired volunteer at 2 a.m.**, on a laptop or tablet, often on bad Wi-Fi. The survivor never logs in. They talk to the volunteer, and for a moment they see a screen turned towards them. Leads handle children, flags and lost slips (a lead reprints a slip from the person's slip page).
 
 **Usability choices** (details in [`FRONTEND.md`](FRONTEND/FRONTEND.md)):
-- **Three big buttons** on Home, **one question per screen**, "Step 2 of 5", and plain words in one file (`strings.ts`).
+- **Three big buttons** on Home (plus a smaller **Answers waiting** button), **one question per screen**, "Step 2 of 5", and plain words in one file (`strings.ts`).
 - **"Say:" boxes** give the exact words to read out, so nobody has to improvise how to explain privacy.
 - **Only the name is required.** "I don't know" is always valid, and an unknown age is never `0`.
 - **Drafts survive a reload or a dropped connection.** A retried save never creates a second person: the browser makes the id once.

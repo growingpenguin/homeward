@@ -106,7 +106,7 @@ The constraints come first, then the screen and the code that handle each one. O
 ### 1. "Volunteers are non-technical and exhausted"
 
 - **`strings.ts`** holds every word the app shows or reads out to screen readers. I can read the whole app's text in one file and remove jargon, and it's ready for Spanish later.
-- **Home has just 3 big buttons**: *Someone is here*, *Someone is looking for family*, *Check a code*. A badge shows the number of answers waiting. Children without an adult are listed on the lead page, not on Home.
+- **Home has just 3 big buttons**: *Someone is here*, *Someone is looking for family*, *Check a code*. A smaller **Answers waiting (N)** button shows how many are waiting, and leads also see a **Lead page** button. A **Home** button in the top bar is always there. (Children without an adult are listed on the lead page, not on Home.)
 - **`BigButton`** is the one look for every main action: big, full width on a tablet, words instead of icons. It's `type="button"` unless it's the save button, so "Back" can never save a form by accident.
 - **`SayThis`** shows the exact words to read out on every screen, so a volunteer never has to make up how to explain privacy to a frightened person.
 - **One question per step**, with "Step 2 of 5" at the top, and every saved person has an **Edit** button for fixing a typo afterwards.

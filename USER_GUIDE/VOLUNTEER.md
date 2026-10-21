@@ -66,7 +66,7 @@ A nickname is fine. You do not need a real name or an ID.
 
 ### Step 4. Type the age
 
-Type **80**. Press **18 or over**. Press **Next**.
+Type **80**. Press **18 or over**. (**Not sure** is already chosen: change it.) Press **Next**. Some screens are taller than yours: scroll down to find **Next** or **Save**.
 
 If you do not know the age, leave it empty and press **Not sure**. The person will then be treated as a child, to keep them safe. A lead will decide later. If you know they are a grown-up, press **18 or over**.
 
@@ -87,7 +87,7 @@ She chooses. Press her choice. For this practice, choose **Ask me first**. Press
 
 ### Step 6. Skip the extra boxes
 
-You do not need them. Press **Next**.
+You do not need them. Press **Next**. (The same goes for **Other names** on the name step and **Where did they last see them?** on a search: you can skip them.)
 
 ![Press Next.](screenshots/v08-extras.png)
 
@@ -103,7 +103,7 @@ You see **Odalys Fennimore is saved.**
 
 ### Step 9. Give her the slip
 
-The slip has a **Code** and a **PIN**. **The PIN is shown only once.** Press **Print**, or write both down now. Give it to Odalys. Tell her: "Any shelter can use this to check for news."
+The slip has a **Code** and a **PIN**. **The PIN is shown only once.** Press **Print**, or write both down on paper now. Give it to Odalys. Tell her: "Any shelter can use this to check for news."
 
 ![The slip. Your numbers will be different.](screenshots/v11-slip.png)
 
@@ -197,7 +197,7 @@ The letters **HW-** are already there. Type the rest of the code from the slip.
 
 ![Type the slip PIN. Press Check.](screenshots/v22-code-and-pin.png)
 
-### Step 5. Press "Turn the screen around"
+### Step 5. Press "Turn the screen around: show the answers"
 
 ![Press Turn the screen around.](screenshots/v23-slip-found.png)
 
@@ -210,6 +210,8 @@ The letters **HW-** are already there. Type the rest of the code from the slip.
 That waiting message looks the same for "not yet", "not now" and "no". That is on purpose. It keeps people safe.
 
 ### Step 7. Give the screen back
+
+You land on an empty **Check a code** screen, ready for the next person. Press **Home** to go back to the big buttons.
 
 ![Press Give the screen back to the volunteer.](screenshots/v25-give-the-screen-back.png)
 
@@ -300,7 +302,7 @@ You find it after **Someone is here**.
 
 ### Step 2. Write where the form is, and its date
 
-Type **Sheet 4, line 12** in the first box. Then type the date in **Date written on the paper**. The box shows month, day, year: for practice type **10/20/2026**. If a real form has no date, use the day the forms were collected. Press **Next**. (This is **Step 1 of 6**. That is normal for paper forms.)
+Type **Sheet 4, line 12** in the first box. Leave **Slip code, if a pre-printed slip was handed out** empty. Then type the date in **Date written on the paper**. The box shows month, day, year: for practice type **10/20/2026**. If a real form has no date, use the day the forms were collected. Press **Next**. (This is **Step 1 of 6**. That is normal for paper forms.)
 
 ![Type the sheet, the date. Press Next.](screenshots/v37-paper-sheet-and-date.png)
 

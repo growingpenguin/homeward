@@ -15,6 +15,7 @@ import { HomePage } from "./pages/HomePage";
 import { LeadPage } from "./pages/LeadPage";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
+import { SavedSearchPage } from "./pages/SavedSearchPage";
 import { SearchPage } from "./pages/SearchPage";
 import { SlipPage } from "./pages/SlipPage";
 import { t } from "./strings";
@@ -83,6 +84,7 @@ function Session() {
           {me.data !== "locked" && <Route path="/register" element={<RegisterPage key={me.data.staffId} staffId={me.data.staffId} />} />}
           {me.data !== "locked" && <Route path="/search" element={<SearchPage key={me.data.staffId} staffId={me.data.staffId} />} />}
           <Route path="/answers" element={<AnswersPage />} />
+          <Route path="/searches/:id" element={<SavedSearchPage />} />
           <Route path="/code" element={<CheckCodePage />} />
           <Route path="/persons/:id/slip" element={<SlipPage isLead={isLead} />} />
           {isLead && <Route path="/lead" element={<LeadPage />} />}

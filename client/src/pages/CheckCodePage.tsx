@@ -3,6 +3,7 @@
 // around and they see the answer to each of their searches, asked fresh from the backend each time.
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router";
 import { api } from "../api/client";
 import { HttpError } from "../api/http";
 import { freshOnly, searcherStatusQuery } from "../api/queryClient";
@@ -18,6 +19,7 @@ const fetchStatus = (searchId: string) => api<SearcherStatus>(`/api/searches/${s
 const endCheck = () => void api<void>("/api/lookup/end", { method: "POST", userAction: true }).catch(() => {});
 
 export function CheckCodePage() {
+  const navigate = useNavigate();
   const [code, setCode] = useState("");
   const [answering, setAnswering] = useState(false);
   const checked = useRef(false);   // a slip is checked on the server right now
@@ -77,6 +79,11 @@ export function CheckCodePage() {
         ) : (
           <BigButton label={t.check.showSearcher} hint={t.check.searches(found.searches.length)} onClick={() => setShowing(0)} />
         )}
+        {found.searches.map((s) => (
+          <button key={s.searchId} type="button" onClick={() => navigate(`/searches/${s.searchId}`)}>
+            {t.search.open(s.soughtNames.join(", "))}: {t.search.checkAgain_btn}
+          </button>
+        ))}
         {found.answersWaiting > 0 && (
           <BigButton label={t.check.answerNow} hint={t.check.waiting(found.answersWaiting)} onClick={() => setAnswering(true)} />
         )}

@@ -47,7 +47,7 @@ test("a child is released only after the guardian check, a note and how they'll 
   await user.type(screen.getByLabelText(/How you checked/), "Mia recognised her dad");
   await user.type(screen.getByLabelText(/How they will meet/), "Dad comes to the Eastside desk at 3 p.m.");
   expect(review).toBeDisabled();   // still needs "the person here agreed"
-  await user.click(screen.getByLabelText(/The person here agreed/));
+  await user.click(screen.getByLabelText(/The person at this desk agreed/));
   await user.click(review);
   expect(screen.getByText("“Dad comes to the Eastside desk at 3 p.m.”")).toBeInTheDocument();
   expect(sent.some((s) => s.path.includes("release-minor"))).toBe(false);   // nothing sent before "Yes"
@@ -77,7 +77,7 @@ const slipAt = (isLead: boolean) =>
 test("a volunteer never sees the lead actions on a person's page", async () => {
   fakeBackend({ "GET /api/persons/p1": { status: 200, body: person } });
   slipAt(false);
-  expect(await screen.findByText("Rosa is saved.")).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Rosa" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Reprint a lost slip/ })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Protect this person/ })).not.toBeInTheDocument();
 });

@@ -2,7 +2,7 @@
 // After saving: print the slip with the code and PIN. The PIN is shown once and kept nowhere else.
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "react-router";
+import { Link, useLocation, useParams } from "react-router";
 import { api } from "../api/client";
 import { HttpError } from "../api/http";
 import type { PersonView, SlipResponse } from "../api/types";
@@ -12,6 +12,7 @@ import { t } from "../strings";
 export function SlipPage({ isLead = false }: { isLead?: boolean }) {
   const { id } = useParams();
   const qc = useQueryClient();
+  const justSaved = (useLocation().state as { saved?: boolean } | null)?.saved === true;
   const person = useQuery({ queryKey: ["person", id], queryFn: () => api<PersonView>(`/api/persons/${id}`) });
   const slip = useMutation({
     mutationFn: () => api<SlipResponse>(`/api/persons/${id}/slip`, { method: "POST", userAction: true }),
@@ -36,7 +37,7 @@ export function SlipPage({ isLead = false }: { isLead?: boolean }) {
 
   return (
     <div className="stack">
-      <h2 className="no-print">{t.slip.saved(person.data.preferredName)}</h2>
+      <h2 className="no-print">{justSaved ? t.slip.saved(person.data.preferredName) : person.data.preferredName}</h2>
       {printed ? (
         <>
           <div className="slip">

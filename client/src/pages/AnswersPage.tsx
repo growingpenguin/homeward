@@ -16,19 +16,21 @@ type Choice = "CONNECT" | "SAFE" | "NOT_NOW" | "DECLINE";
 // onlyPersonId: after a slip check, show only that person's requests (never other people sheltered here).
 export function AnswersPage({ onlyPersonId }: { onlyPersonId?: string }) {
   const waiting = useQuery({ queryKey: ["answers"], queryFn: () => api<WaitingRequest[]>("/api/answers") });
+  const [notice, setNotice] = useState<string | null>(null);   // what the last answer did, said once
   if (waiting.isError) return <p role="alert">{t.problem.noConnection}</p>;
   if (!waiting.data) return null;
   const list = onlyPersonId ? waiting.data.filter((r) => r.personId === onlyPersonId) : waiting.data;
   return (
     <div className="stack">
       <h2>{t.answers.title}</h2>
+      {notice && <p role="status" className="notice">{notice}</p>}
       {list.length === 0 && <p role="status">{t.answers.none}</p>}
-      {list.map((r) => <Answer key={r.requestId} request={r} />)}
+      {list.map((r) => <Answer key={r.requestId} request={r} onDone={setNotice} />)}
     </div>
   );
 }
 
-function Answer({ request: r }: { request: WaitingRequest }) {
+function Answer({ request: r, onDone }: { request: WaitingRequest; onDone: (notice: string) => void }) {
   const qc = useQueryClient();
   const [connecting, setConnecting] = useState(false);
   const [plan, setPlan] = useState("");
@@ -41,7 +43,10 @@ function Answer({ request: r }: { request: WaitingRequest }) {
         userAction: true,
       }),
     // A decision is never repeated by accident (no retry); the list is fetched again afterwards.
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["answers"] }),
+    onSuccess: (_, choice) => {
+      onDone(choice === "NOT_NOW" ? t.answers.stillWaiting : t.answers.saved);
+      void qc.invalidateQueries({ queryKey: ["answers"] });
+    },
   });
   const problem = decide.error && (decide.error instanceof HttpError && decide.error.status < 500 ? decide.error.message : t.problem.noConnection);
 
@@ -70,7 +75,7 @@ function Answer({ request: r }: { request: WaitingRequest }) {
       )}
       {!connecting && !r.childInvolved && (
         <div className="stack">
-          <BigButton label={t.answers.safe(searcher)} onClick={() => decide.mutate("SAFE")} disabled={decide.isPending} />
+          <BigButton label={t.answers.safe(searcher, r.personName)} onClick={() => decide.mutate("SAFE")} disabled={decide.isPending} />
           <button type="button" onClick={() => decide.mutate("NOT_NOW")} disabled={decide.isPending}>{t.answers.notNow}</button>
           <button type="button" onClick={() => decide.mutate("DECLINE")} disabled={decide.isPending}>{t.answers.no}</button>
         </div>

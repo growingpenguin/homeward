@@ -71,3 +71,4 @@ nav.stack a { display: flex; align-items: center; min-height: var(--tap-min); }
 .searcher-view button { font-size: 1em; }
 /* Read by screen readers, not shown (when the same words are already the heading). */
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.notice { padding: 12px 16px; background: #e8f3f6; border-left: 4px solid var(--focus); }

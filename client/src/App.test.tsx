@@ -127,3 +127,28 @@ test("a late 401 right after logging out doesn't leave the login page stuck with
   expect(await screen.findByRole("option", { name: shelter.name })).toBeInTheDocument();
   expect(screen.queryByText(/Connecting/)).not.toBeInTheDocument();
 });
+
+test("logging in after someone else left a screen open always starts at home", async () => {
+  window.history.pushState({}, "", "/persons/00000000-0000-0000-0000-0000000000f1/slip");   // the last person left a slip open
+  let loggedIn = false;
+  fakeBackend({
+    "GET /api/me": () => (loggedIn ? { status: 200, body: alex } : { status: 401 }),
+    "GET /api/shelters": { status: 200, body: [shelter] },
+    "GET /api/answers": { status: 200, body: [] },
+    "POST /api/login": () => ((loggedIn = true), { status: 200, body: alex }),
+    "GET /api/persons/00000000-0000-0000-0000-0000000000f1": { status: 404, body: { message: "Person not found." } },
+  });
+  render(<App />);
+  const user = userEvent.setup();
+  await screen.findByRole("option", { name: shelter.name });   // the shelter list has loaded
+  await user.selectOptions(screen.getByLabelText("Your shelter"), shelter.name);
+  await user.type(screen.getByLabelText("Your name"), "Volunteer Alex");
+  await user.type(screen.getByLabelText("Your PIN"), "2468");
+  await user.click(screen.getByRole("button", { name: "Log in" }));
+  expect(await screen.findByRole("button", { name: /Someone is here/ })).toBeInTheDocument();   // the home screen
+  expect(window.location.pathname).toBe("/");
+  expect(screen.queryByText("Person not found.")).not.toBeInTheDocument();
+  // And a Home button is always in the top bar.
+  await user.click(screen.getByRole("button", { name: "Home" }));
+  expect(window.location.pathname).toBe("/");
+});

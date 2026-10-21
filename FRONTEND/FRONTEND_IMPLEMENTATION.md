@@ -299,3 +299,45 @@ Frontend tests 26 to **34**. Each test was seen failing under a temporary mutati
 **Kept:** unknown age = child (safe side); duplicate registrations not flagged (README limit).
 
 **Tests:** `npm test` **36 passed** (new: one person, two searches, registered once); lint 0 errors; build passed; backend build passed. **Real run** (local against Neon, fresh browser): Cora searched for her brother, then **Look for someone else too** for her sister. Her one slip showed "2 searches": the brother's "They want to connect…" and the sister's "Your request is saved…". The sister was registered later, and **Check again for new matches** found her. "Answer saved." was shown after Connect.
+
+
+## Role guides and walkthrough checks (2026-10-20)
+
+**Branch:** `feature/role-guides`. User approved the plan before execution.
+
+**Plan:** preserve the existing guide in `USER_GUIDE/`, add volunteer, lead and person-seeking-help guides in plain language, take real screenshots with fictional data, then replay the finished instructions in fresh browser sessions. Fix links and record actual outcomes here.
+
+**Step 1:** untracked local `AGENTS.md`, `CLAUDE.md` and the unused privacy screenshot; local copies preserved and exact ignore rules added. Moved the existing guide and repaired its image paths and README links.
+
+**Staff setup check:** only six seeded demo staff accounts exist in the setup. No staff creation endpoint, staff management page or invitation flow is implemented. Leads manage safety tasks, not accounts. The guides state this limit explicitly.
+
+**Test setup:** isolated local PostgreSQL 18.6 with real Flyway migrations V1–V6, seeded fictional shelters/staff and fresh fictional people entered through the UI. Backend 1.0.4 ran as `homeward_app` on port 18089; Vite on 15179 proxied to it. No live demo records were changed. The database was cleared of people between full passes; existing unrelated containers were untouched.
+
+**Step 2:** first UI walkthrough completed 19 checks on the isolated local app. Captured 16 screenshots directly from the browser. Registration, misspelled matching, cross-shelter slip checks, Not now, Connect, Safe, Decline, hidden-person search, volunteer child restrictions, lead child release, protection after connection, flag clearing, lost-slip replacement, paper intake, editing and logout were exercised. Browser automation initially used an exact button name that omitted the button's accessible hint; corrected the selector and reran from clean test records. This was a harness issue, not an app failure.
+
+**Step 3:** drafted the three role guides; preserved the full guide while fixing misleading instructions. Both lead checkboxes are required for all releases. Removed the suggestion to register again after a typo. Explained the lack of a general person list, the limited adult lost-slip recovery route, and that clearing a flag does not reconnect a blocked request. Added staff-setup limitations to the guide and README. The final instructions were then replayed successfully in fresh browser contexts.
+
+
+**Step 4: final tutorial replay and review.** The 19-check walkthrough passed again with fresh browser contexts and clean fictional people, using the names and steps in the finished guides. Four additional UI checks passed: two family searches on one slip; finding someone who arrived after a saved no-match search; reaching adult protection controls after printing; and reopening an adult record from its saved page address as the same-shelter lead. The extra run also needed the accessible-hint selector correction for “Look for someone else too.” No product code was changed. Clarified that refreshing a saved search takes two buttons, on two screens.
+
+| Tutorial situation | Observed result |
+|---|---|
+| Volunteer and lead logins | Correct home controls; volunteer has no lead button; both can log out |
+| Adult registration and slip | Ask-first selection saved; code/PIN shown; print CSS rendered to a local PDF |
+| Misspelled matching and cross-shelter reunion | Odalis Fenimore found Odalys; card omitted shelter; Westfield received the consented plan |
+| Not now, Safe and Decline | Not now kept the card; Safe showed only safe wording; Decline and Pending displayed identical searcher text |
+| Hidden or protected exact-name search | Target did not appear; searcher could still receive a slip and neutral answer |
+| Child request | Volunteer had no decision buttons; lead needed both boxes, note and plan before preview/confirmation |
+| Protection after connection | Previously shared plan became the neutral waiting answer |
+| Clearing protection | Flag disappeared; old blocked connection did not return |
+| Replacement slip | Old code/PIN rejected; new slip accepted at another shelter |
+| Paper forms and edits | Missing reference/date refused; next form kept date, cleared reference; edit retained the existing slip |
+| Multiple relatives and later arrivals | Two searches on one slip; saved search refresh found a later registration |
+| Adult protection and reopening | Lead controls available after Fix a mistake / Save changes; saved page address reopened same-shelter record |
+| Staff creation | Absent from routes and UI; documented as unimplemented, not counted as a successful onboarding flow |
+
+**Document checks:** four Markdown guides rendered in a local browser preview; all 23 image uses loaded with no horizontal overflow at 1050px. All 16 new PNG files decoded correctly. Key screenshots visually reviewed; paper-entry screenshot retaken without validation errors. Relative-link and guide-anchor scan checked 76 links with zero broken; `git diff --check` passed.
+
+**Limits:** these are browser-driven checks against an isolated local copy, not a new live deployment test or a real-person usability study. Print layout was rendered; no physical printer was tested. Human guardian checks and consent were simulated with fictional people. Temporary browser scripts and preview artifacts stayed outside the repository. No staff-management feature was implemented. No commit, push or release was performed.
+
+**Cleanup:** stopped the temporary backend/frontend and removed the dedicated test PostgreSQL container and its volume. All three local-only files remain on disk.

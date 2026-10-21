@@ -118,7 +118,16 @@ export function SearchPage({ staffId }: { staffId: string }) {
   const finish = () => {
     const searcherId = d.searcherId;
     draft.clear();
-    navigate(`/persons/${searcherId}/slip`);
+    navigate(`/persons/${searcherId}/slip`, { state: { saved: true } });
+  };
+
+  // The same person looks for another relative: a new search, but the SAME person and slip,
+  // so one slip shows the answers to all of their searches.
+  const another = () => {
+    set({ searchId: newRecordId(), names: "", ageFrom: "", ageTo: "", relationship: "", lastPlace: "" });
+    setResult(null);
+    setProblem(null);
+    setStep("whom");
   };
 
   if (step === "results" && result) {
@@ -131,6 +140,7 @@ export function SearchPage({ staffId }: { staffId: string }) {
         {result.matches.map((m) => (
           <MatchCardView key={m.personId} searchId={result.searchId} card={m} onSent={setResult} />
         ))}
+        <BigButton label={t.search.another} hint={t.search.another_hint} onClick={another} />
         <BigButton label={t.search.done} onClick={finish} />
       </div>
     );
@@ -175,7 +185,7 @@ export function SearchPage({ staffId }: { staffId: string }) {
 }
 
 // One possible match: name, age and why, never where. "Ask this person" sends a contact request.
-function MatchCardView({ searchId, card, onSent }: { searchId: string; card: MatchCard; onSent: (r: SearchResult) => void }) {
+export function MatchCardView({ searchId, card, onSent }: { searchId: string; card: MatchCard; onSent: (r: SearchResult) => void }) {
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const send = useMutation({

@@ -44,6 +44,7 @@ The top bar shows who is logged in and a **Log out** button.
 3. Answer one question per screen. Only the name is required. You can leave anything else empty.
    - **What should we call you?** A nickname is fine. Add other names, separated by commas.
    - **About how old are you?** A guess is fine. Then **Under 18**, **18 or over** or **Not sure**.
+     If you know the person is an adult, choose **18 or over** (or type an age of 21 or more). With no age and **Not sure**, or a guessed age under 21, Homeward treats them as a child to be safe, and a lead has to approve any "Connect".
    - For a child or "not sure", it also asks **Is an adult from their family with them?**
    - **If someone comes looking for you, what should we do?** Read the "Say:" box aloud. See [the three choices](#what-the-person-can-choose-about-being-found).
    - Optional: where they are from, anything that helps recognise them, a phone number.
@@ -76,7 +77,9 @@ The slip and PIN stay the same. After you leave the slip screen, a volunteer can
 
 ![Possible matches](docs/guide/3-search-results.png)
 
-If nobody matches, you see "No match yet. The search is saved: someone registered later can still be found." Still print the slip.
+If nobody matches, you see "No match yet. The search is saved…". Still print the slip. When they come back, use **Check a code**, then **Their search for … : Check again for new matches** (at this shelter) to look again, for example after paper forms were typed in.
+
+Looking for **more than one relative**? After the results, press **Look for someone else too**. It is the same person and the same slip, so one slip later shows the answers to all of their searches.
 
 ### 3. Someone's family asked about them
 
@@ -86,7 +89,9 @@ The request waits at the shelter where the person is registered.
 2. Each card says who is looking for whom, how they are related, and **Read this to them**. Read the quote aloud to the person.
 3. The person decides. Press one button:
    - **Connect with (name).** You type how they will meet (for example "Call the Eastside desk and ask for Odalys"). The screen shows exactly what will be shared. Press **Yes, share this**.
-   - **Tell (name) I'm safe (not where I am).** The searcher learns the person is safe. Nothing else.
+   - **Tell (searcher) that (name) is safe (not where).** The searcher learns the person is safe. Nothing else.
+
+   After any answer you see "Answer saved." **Not now** keeps the request waiting ("Okay. The request is still waiting; you can answer it later.").
    - **Not now.** The card stays in the list. Come back later.
    - **Say no to this request.** The card disappears. The searcher is never told "no". They just keep seeing "still looking".
 4. If the person chose **Tell them where I am**, the card says so. You still press the buttons yourself.
@@ -196,13 +201,13 @@ The server was asleep. Wait up to a minute. If it is still there after two minut
 
 **"That didn't work. Check the shelter, your name and your PIN."**
 Check the shelter in the list, type the name exactly as in the table, and use PIN 2468.
-After too many tries you may see "Too many tries. Please wait 15 minutes or ask a lead." Wait, or use a different login.
+After too many tries you may see "Too many tries. Please wait 15 minutes or ask a lead." Wait, or use a **different demo login** (there are six; testing wrong PINs on one account locks only that account).
 
 **"That code and PIN didn't match. Please check the slip and try again."**
 Check the code and the PIN against the slip. A wrong code and a wrong PIN give the same message. Too many wrong tries lock that slip for a while. The slip may also have been replaced by a lead (the old one stops working).
 
 **The search found nobody.**
-Try another spelling, a nickname, or remove the age range. Hidden or protected people are never found, and you cannot tell that from "not here yet". The search is saved, so someone who registers later can still be found. Give the searcher a slip and ask them to come back to **Check a code**.
+Try another spelling, a nickname, or remove the age range. Hidden or protected people are never found, and you cannot tell that from "not here yet". The search is saved. Give the searcher a slip; when they come back, **Check a code**, then **Check again for new matches** on their search (at the shelter where it was made) finds people registered since.
 
 **A child shows no buttons.**
 That is correct. Ask a lead. See [Children](#children).

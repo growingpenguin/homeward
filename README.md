@@ -17,6 +17,8 @@ The seeded data is fictional: three shelters, six staff and 200 generated names.
 
 ---
 
+> **New here?** The **[User guide](USER_GUIDE.md)** explains every screen step by step, with a 5-minute walkthrough. **[Test cases](TEST_CASES.md)**: 35 tests an evaluator would run, written from the challenge only and run on the live site.
+
 ## Overview
 
 After a hurricane evacuation of about 400,000 people, families are split across dozens of shelters. Many people have **no phone and no ID**, some **don't want to be found**, shelters keep their **own lists (some on paper)**, and the people at the desks are **tired, non-technical volunteers**.
@@ -44,16 +46,10 @@ The lead page holds children waiting for a sign-off, children without an adult, 
 
 ![Lead page](docs/screenshots/6-lead-page.png)
 
-### Try it (about 3 minutes)
-1. Log in as **Volunteer Riley** at **Eastside**. Choose *Someone is here*, then *No, the person is here with me*, and register "Rosa", about 80, *Ask me first*. Save.
-2. Log out. Log in as **Volunteer Alex** at **Lincoln**. Choose *Someone is looking for family*, enter her son "Marco" (an adult), and search for "Rossa", 75 to 85. Her card shows reasons and no place. Choose *Ask this person*, add a message, then *Done: print their slip* and print it, noting the code and PIN.
-3. Log out. At **Westfield** (Volunteer Casey), choose *Check a code*, type Marco's code and PIN, then *Turn the screen around*. It says: *"Your request is saved…"*.
-4. Log out. At **Eastside** (Riley), open *Answers waiting*, choose *Connect with Marco*, write how they'll meet, and confirm.
-5. Back at **Westfield**, check Marco's slip again: *"They want to connect. Here's how: …"*.
+### Try it
+The [user guide](USER_GUIDE.md#try-the-whole-story-in-5-minutes) has a 5-minute walkthrough across three shelters, plus a child case and a protected person. In short: register someone at **Eastside**, search for them from **Lincoln** and print the searcher's slip, answer **Connect** at Eastside, then check the slip at **Westfield**.
 
-Try a child too. Register a 9-year-old at Eastside and search for her from Lincoln. The volunteer gets no buttons, only *"a lead decides"*. Lead Morgan at Eastside releases her from the lead page, after a guardian check, a note and a preview of what will be shared.
-
----
+If a demo login says "Too many tries", someone tested wrong PINs on it: use another of the six logins.
 
 ## The full picture
 
@@ -108,6 +104,7 @@ The challenge covers the whole reunification problem. I built **one complete loo
 - **Cold start:** the free JVM sleeps; the frontend shows "Connecting" and logins are retried while it wakes.
 - **Scale:** matching reads through a privacy view that probably can't use the name indexes. That's fine at demo scale (about 35 ms on Neon) but needs re-measuring near 400,000 people.
 - **Timing:** a wrong slip code and a wrong PIN take *almost* the same time.
+- **Duplicates:** the same person registered twice (at two desks) is not flagged or merged yet. Both records can be matched, and each answers for itself. Spotting likely duplicates for a lead is the next step.
 
 ### Run it locally
 Requires JDK 21 (`JAVA_HOME` pointing to it), Node.js 22.12+ and Docker. Run these checks from the repository root; on this Mac Docker runs through Colima.

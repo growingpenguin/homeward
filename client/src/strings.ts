@@ -18,6 +18,7 @@ export const t = {
     code: "Check a code",
     comingNext: "Coming next",
     hello: (name: string) => `Logged in as ${name}`,
+    home: "Home",
     logout: "Log out",
     logoutFailed: "Couldn't log out: no connection. You are still logged in. Please try again.",
   },

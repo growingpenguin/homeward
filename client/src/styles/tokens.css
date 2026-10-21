@@ -72,3 +72,4 @@ nav.stack a { display: flex; align-items: center; min-height: var(--tap-min); }
 /* Read by screen readers, not shown (when the same words are already the heading). */
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .notice { padding: 12px 16px; background: #e8f3f6; border-left: 4px solid var(--focus); }
+.top-bar__buttons { display: flex; gap: 8px; }

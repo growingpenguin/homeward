@@ -274,7 +274,7 @@ If Odalys had chosen "safe", Pell would see this instead:
 
 People may register after a search was made. To look again:
 
-1. Go to the shelter where the search was made.
+1. Go to the shelter where the search was made. In this story that is **Lincoln High Shelter** (log in as **Volunteer Alex**). At another shelter you see: *This search was made at another shelter. Check again there.*
 2. Press **Check a code**. Type the slip code and PIN. Press **Check**.
 3. Press **Their search for …** (it shows the names that were searched).
 
@@ -284,7 +284,7 @@ People may register after a search was made. To look again:
 
 ![Press Check again for new matches.](screenshots/v27-check-again.png)
 
-If someone new matches, a **new card** appears. If the same cards stay, nobody new has been registered yet. Come back later.
+If someone new matches, a **new card** appears. If the same cards stay, nothing changed: nobody new has been registered yet. Come back later. (Old cards may still say **Asked**. That is normal.)
 
 ---
 

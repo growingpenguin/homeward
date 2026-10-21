@@ -17,7 +17,7 @@ The seeded data is fictional: three shelters, six staff and 200 generated names.
 
 ---
 
-> **New here?** The **[User guide](USER_GUIDE/USER_GUIDE.md)** includes the full guide plus illustrated walkthroughs for [volunteers](USER_GUIDE/VOLUNTEER.md), [leads](USER_GUIDE/LEAD.md) and [people asking for help](USER_GUIDE/PERSON_LOOKING_FOR_HELP.md). **[Test cases](TEST_CASES.md)**: 35 tests an evaluator would run, written from the challenge only and run on the live site.
+> **New here?** The **[User guide](USER_GUIDE/USER_GUIDE.md)** is a short overview, with step-by-step guides with a picture on every step for [volunteers](USER_GUIDE/VOLUNTEER.md), [leads](USER_GUIDE/LEAD.md) and [people asking for help](USER_GUIDE/PERSON_LOOKING_FOR_HELP.md). **[Test cases](TEST_CASES.md)**: 35 tests an evaluator would run, written from the challenge only and run on the live site.
 
 ## Overview
 
@@ -47,7 +47,7 @@ The lead page holds children waiting for a sign-off, children without an adult, 
 ![Lead page](docs/screenshots/6-lead-page.png)
 
 ### Try it
-The [user guide](USER_GUIDE/USER_GUIDE.md#try-the-whole-story-in-5-minutes) has a 5-minute walkthrough across three shelters, plus a child case and a protected person. In short: register someone at **Eastside**, search for them from **Lincoln** and print the searcher's slip, answer **Connect** at Eastside, then check the slip at **Westfield**.
+The [user guide](USER_GUIDE/USER_GUIDE.md#try-the-whole-story-in-5-minutes) has a 5-minute walkthrough across three shelters; the [lead guide](USER_GUIDE/LEAD.md) covers the child case and protecting someone. In short: register someone at **Eastside**, search for them from **Lincoln** and print the searcher's slip, answer **Connect** at Eastside, then check the slip at **Westfield**.
 
 If a demo login says "Too many tries", someone tested wrong PINs on it: use another of the six logins.
 
@@ -111,9 +111,9 @@ Requires JDK 21 (`JAVA_HOME` pointing to it), Node.js 22.12+ and Docker. Run the
 
 ```bash
 colima start                                   # Docker, for the database tests and Testcontainers
-scripts/db-test.sh                             # migrations + seed + 155 SQL checks on PostgreSQL 18.6
-(cd server && ./gradlew build)                   # 52 backend tests (Testcontainers, app as homeward_app)
-(cd client && npm ci && npm run lint && npm test && npm run build)    # 26 frontend tests
+scripts/db-test.sh                             # migrations + seed + 173 SQL checks on PostgreSQL 18.6
+(cd server && ./gradlew build)                   # 62 backend tests (Testcontainers, app as homeward_app)
+(cd client && npm ci && npm run lint && npm test && npm run build)    # 37 frontend tests
 ```
 
 For the app, create an ignored `.env.local` with `HOMEWARD_APP_DATABASE_URL` set to the least-privilege `homeward_app` connection URL for a database provisioned with V1–V5 and the fictional seed (see [`DATABASE_PLAN.md`](DATABASE/DATABASE_PLAN.md)). Do not source the file; the runner parses it. In two terminals, each starting at the repository root:
